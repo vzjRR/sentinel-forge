@@ -1,0 +1,13 @@
+{
+  "name": "security-indicators",
+  "synthetic": true,
+  "description": "Fictional credential-shaped strings, an encoded payload, a remote load pattern and a webhook endpoint.",
+  "expectedRules": [
+    "SEC-SECRET-001",
+    "SEC-WEBHOOK-001",
+    "SEC-OBFUSCATION-001",
+    "SEC-REMOTE-LOAD-001",
+    "SEC-DYNAMIC-EXEC-001"
+  ],
+  "notes": "Every credential-shaped value here is a deliberately invalid placeholder. None of these endpoints or keys exist. This fixture exists to exercise detection and redaction; tests assert that no raw placeholder value reaches report output."
+}

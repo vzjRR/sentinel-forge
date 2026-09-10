@@ -1,0 +1,7 @@
+{
+  "name": "performance-smell",
+  "synthetic": true,
+  "description": "Loops without yields, event triggers in hot paths, and per-iteration database queries.",
+  "expectedRules": ["PERF-LOOP-001", "PERF-EVENT-001", "PERF-QUERY-001"],
+  "notes": "client.lua contains a `while true` loop with no Wait. server.lua queries inside a loop and builds SQL by concatenation. hud.lua uses Wait(0) legitimately and must NOT be reported by PERF-LOOP-001 — it is the false-positive control for that rule."
+}

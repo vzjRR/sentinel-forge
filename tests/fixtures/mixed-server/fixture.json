@@ -1,0 +1,7 @@
+{
+  "name": "mixed-server",
+  "synthetic": true,
+  "description": "A server combining healthy resources with a missing dependency, a dependency cycle and a performance smell.",
+  "expectedRules": ["DEP-MISSING-001", "DEP-CYCLE-001", "PERF-LOOP-001"],
+  "notes": "Used to exercise scoring and report rendering across several categories at once. sf_cycle_a and sf_cycle_b depend on each other."
+}

@@ -1,0 +1,7 @@
+{
+  "name": "integrity-change",
+  "synthetic": true,
+  "description": "Two snapshots of the same server: a file is modified, one is added and one is deleted.",
+  "expectedRules": ["INT-CHANGE-001"],
+  "notes": "before/ and after/ are complete server trees. after/ modifies sf_core/server/main.lua, adds sf_core/server/extra.lua and deletes sf_core/client/legacy.lua."
+}

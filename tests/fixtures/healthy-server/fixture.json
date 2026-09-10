@@ -1,0 +1,7 @@
+{
+  "name": "healthy-server",
+  "synthetic": true,
+  "description": "A small, well-formed server: valid manifests, resolvable dependencies, no performance or security indicators.",
+  "expectedRules": [],
+  "notes": "Baseline for false-positive control. A scan of this fixture should report no findings above INFO."
+}

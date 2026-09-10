@@ -1,0 +1,66 @@
+Sentinel Forge — Proprietary Software License
+Copyright © 2026 Talal Al Ghafri. All Rights Reserved.
+
+Product:   Sentinel Forge — FiveM Server Intelligence
+Owner:     Talal Al Ghafri
+Developer: vzjRR
+
+1. OWNERSHIP
+
+   Sentinel Forge, including its source code, documentation, user interface,
+   diagnostic rules, scoring algorithms, artwork and all other original
+   material contained in this repository (collectively, the "Software"), is the
+   exclusive property of Talal Al Ghafri and is protected by copyright and
+   other intellectual property laws.
+
+   This is a proprietary product. It is not open source. No licence is granted
+   by implication, estoppel, or otherwise, except as expressly stated below.
+
+2. RESERVED RIGHTS
+
+   All rights not expressly granted in this licence are reserved by the owner.
+   Without prior written permission from the owner, no person may:
+
+     a. copy, reproduce or distribute the Software;
+     b. modify, adapt or create derivative works of the Software;
+     c. sublicense, sell, rent, lease or otherwise transfer the Software;
+     d. reverse engineer, decompile or disassemble the Software, except to the
+        extent that such a restriction is prohibited by applicable law;
+     e. remove or alter any copyright, trademark or attribution notice.
+
+3. THIRD-PARTY COMPONENTS
+
+   The Software uses third-party components that remain subject to their own
+   licences. Those components, their versions and their licences are listed in
+   THIRD_PARTY_LICENSES.md. Nothing in this licence limits any right granted to
+   you under a third-party component's own licence.
+
+4. NO AFFILIATION
+
+   Sentinel Forge is an independent product. It is not affiliated with,
+   endorsed by, or sponsored by Rockstar Games, Take-Two Interactive, Cfx.re,
+   the FiveM project, or txAdmin. All trademarks referenced in the Software or
+   its documentation are the property of their respective owners and are used
+   only for identification.
+
+5. NO WARRANTY
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+   Sentinel Forge is a diagnostic aid. Its findings are indicators derived from
+   static analysis and recorded evidence. They do not constitute a guarantee
+   that a server is secure, correct, performant, or free of malicious code, and
+   they are not a substitute for review by a qualified person.
+
+6. LIMITATION OF LIABILITY
+
+   IN NO EVENT SHALL THE OWNER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OF OR OTHER DEALINGS IN
+   THE SOFTWARE.
+
+7. CONTACT
+
+   Licensing enquiries should be directed to the owner, Talal Al Ghafri.

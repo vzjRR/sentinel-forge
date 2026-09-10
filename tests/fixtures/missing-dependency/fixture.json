@@ -1,0 +1,7 @@
+{
+  "name": "missing-dependency",
+  "synthetic": true,
+  "description": "A resource declaring a dependency on a resource that is not present in the server.",
+  "expectedRules": ["DEP-MISSING-001"],
+  "notes": "sf_shop declares `dependency 'sf_inventory'`, and sf_inventory does not exist in resources/."
+}

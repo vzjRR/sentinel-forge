@@ -1,0 +1,7 @@
+{
+  "name": "broken-manifest",
+  "synthetic": true,
+  "description": "Manifests that reference a missing file and that cannot be parsed.",
+  "expectedRules": ["CFG-MANIFEST-001", "CFG-MISSING-FILE-001"],
+  "notes": "sf_broken references client/missing.lua which does not exist. sf_unparsable has an unterminated string literal."
+}

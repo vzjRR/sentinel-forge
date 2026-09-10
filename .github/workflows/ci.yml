@@ -1,0 +1,85 @@
+# Sentinel Forge — continuous integration.
+#
+# The pipeline is the same sequence a developer runs locally via `npm run verify`.
+# Each stage is a separate step so a failure names what broke, and the security
+# suite is reported separately because it guards commitments in SECURITY.md.
+
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify (Node ${{ matrix.node }} on ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Node 22.5 is the first release with node:sqlite; 22.x is the supported
+        # line. Additional versions are added here only once they are verified,
+        # so docs/COMPATIBILITY.md can cite this matrix as evidence.
+        os: [ubuntu-latest]
+        node: ['22.x']
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify no third-party runtime dependencies
+        run: |
+          # The product ships with no runtime dependencies (THIRD_PARTY_LICENSES.md).
+          # Workspace packages resolve under node_modules/@sentinel-forge/ and are
+          # expected; any other installed package is a policy break.
+          npm ls --all --omit=dev
+          unexpected="$(npm ls --all --omit=dev --parseable \
+            | grep 'node_modules' \
+            | grep -v 'node_modules/@sentinel-forge/' || true)"
+          if [ -n "$unexpected" ]; then
+            echo "Unexpected third-party runtime dependencies:"
+            echo "$unexpected"
+            exit 1
+          fi
+
+      - name: Check embedded migrations are current
+        run: npm run check:migrations
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Integration tests
+        run: npm run test:integration
+
+      - name: Security tests
+        run: npm run test:security
+
+      - name: Performance benchmarks
+        run: npm run test:performance

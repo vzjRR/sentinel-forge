@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Test / coverage output
+coverage/
+.vitest/
+tests/**/__tmp__/
+
+# Sentinel Forge local runtime data (never commit: may contain server-specific data)
+.sentinel/
+sentinel.db
+sentinel.db-journal
+sentinel.db-wal
+sentinel.db-shm
+sentinel-report.*
+*.sentinel-baseline.json
+
+# Local configuration and secrets (never commit)
+.env
+.env.*
+!.env.example
+sentinel.config.local.json
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.json
+
+# Server data that must never enter the repository
+**/server.cfg.local
+**/citizen/
+**/cache/
+**/logs/
+*.log
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
