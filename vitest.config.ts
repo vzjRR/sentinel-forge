@@ -18,6 +18,9 @@ const rootDirectory = path.dirname(fileURLToPath(import.meta.url));
 const workspaceAliases = {
   '@sentinel-forge/shared': path.resolve(rootDirectory, 'packages/shared/src/index.ts'),
   '@sentinel-forge/core': path.resolve(rootDirectory, 'packages/core/src/index.ts'),
+  '@sentinel-forge/scanner': path.resolve(rootDirectory, 'packages/scanner/src/index.ts'),
+  '@sentinel-forge/dependencies': path.resolve(rootDirectory, 'packages/dependencies/src/index.ts'),
+  '@sentinel-forge/reports': path.resolve(rootDirectory, 'packages/reports/src/index.ts'),
   '@sentinel-forge/cli': path.resolve(rootDirectory, 'apps/cli/src/index.ts'),
 };
 

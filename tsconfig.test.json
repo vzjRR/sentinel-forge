@@ -8,12 +8,30 @@
     "declarationMap": false,
     "sourceMap": false,
     "noEmit": true,
-    "types": ["node", "vitest/globals"],
+    "types": [
+      "node",
+      "vitest/globals"
+    ],
     "baseUrl": ".",
     "paths": {
-      "@sentinel-forge/shared": ["packages/shared/src/index.ts"],
-      "@sentinel-forge/core": ["packages/core/src/index.ts"],
-      "@sentinel-forge/cli": ["apps/cli/src/index.ts"]
+      "@sentinel-forge/shared": [
+        "packages/shared/src/index.ts"
+      ],
+      "@sentinel-forge/core": [
+        "packages/core/src/index.ts"
+      ],
+      "@sentinel-forge/scanner": [
+        "packages/scanner/src/index.ts"
+      ],
+      "@sentinel-forge/dependencies": [
+        "packages/dependencies/src/index.ts"
+      ],
+      "@sentinel-forge/reports": [
+        "packages/reports/src/index.ts"
+      ],
+      "@sentinel-forge/cli": [
+        "apps/cli/src/index.ts"
+      ]
     }
   },
   "include": [
