@@ -13,7 +13,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { scanServer } from '@sentinel-forge/scanner';
+import { scanServer } from '@sentinel-forge/engine';
 import { createWorkspace, removeWorkspace } from '../helpers/workspace.js';
 
 interface Measurement {

@@ -5,6 +5,9 @@
       "path": "packages/shared"
     },
     {
+      "path": "packages/lua"
+    },
+    {
       "path": "packages/core"
     },
     {
@@ -12,6 +15,12 @@
     },
     {
       "path": "packages/dependencies"
+    },
+    {
+      "path": "packages/analyzer"
+    },
+    {
+      "path": "packages/engine"
     },
     {
       "path": "packages/reports"

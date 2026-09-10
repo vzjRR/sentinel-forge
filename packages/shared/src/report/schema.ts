@@ -68,6 +68,33 @@ export interface IntegrityReportSection {
   readonly deleted: readonly string[];
 }
 
+/**
+ * Event graph summary.
+ *
+ * Reported as data rather than as findings: an event registered in one resource
+ * and triggered from another is normal architecture. What makes it useful is
+ * being able to see the shape of the traffic and follow a chain across resource
+ * boundaries.
+ */
+export interface EventReportSection {
+  readonly eventCount: number;
+  readonly networkEventCount: number;
+  readonly broadcastEventCount: number;
+  /** Events triggered somewhere but registered nowhere in the scanned server. */
+  readonly triggeredButNotRegistered: readonly string[];
+  /** Events registered somewhere but never triggered in the scanned server. */
+  readonly registeredButNotTriggered: readonly string[];
+  /** Usages whose event name was computed at runtime and could not be read. */
+  readonly dynamicUsageCount: number;
+  readonly events: readonly {
+    readonly event: string;
+    readonly network: boolean;
+    readonly broadcast: boolean;
+    readonly registeredBy: readonly string[];
+    readonly triggeredBy: readonly string[];
+  }[];
+}
+
 export interface IncidentReportEntry {
   readonly incidentId: string;
   readonly startTime: string;
@@ -94,6 +121,7 @@ export interface SentinelReport {
   readonly resources: readonly ResourceReportEntry[];
   readonly findings: readonly Finding[];
   readonly dependencies?: DependencyReportSection;
+  readonly events?: EventReportSection;
   readonly performance?: PerformanceReportSection;
   readonly security?: SecurityReportSection;
   readonly integrity?: IntegrityReportSection;

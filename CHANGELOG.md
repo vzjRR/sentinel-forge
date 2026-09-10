@@ -6,6 +6,64 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 © 2026 Talal Al Ghafri. All Rights Reserved.
 
+## [0.3.0] — GATE 2: Diagnostic engine
+
+Sentinel Forge now diagnoses, not just inventories: it analyses Lua source
+without executing it and produces an explainable health score where every point
+deducted names the finding that caused it.
+
+### Added
+
+- **`@sentinel-forge/lua`**: the full Lua 5.4 lexical grammar and a block
+  structure model. Shared with manifest parsing so the two cannot drift apart on
+  what a Lua string or comment is.
+- **`@sentinel-forge/analyzer`**: script analysis (loops with continuity, yield
+  state and wait interval; thread bodies; event registrations and triggers with
+  direction and broadcast detection; database calls with statement
+  classification), the cross-resource event graph, and health scoring.
+- **`@sentinel-forge/engine`**: the scan pipeline, extracted so the scanner does
+  not depend on the analyzer and so the dashboard and MCP server can run the
+  same analysis rather than a variation of it.
+- **Rules** `PERF-LOOP-001`, `PERF-EVENT-001` and `PERF-QUERY-001`.
+- **Commands** `sentinel health` and `sentinel resource <name>`.
+- **Health scoring**: deductions weighted by confidence, per-category scores,
+  normalized weighting across scored categories, documented caps, and any
+  category without analysis behind it reported as unavailable rather than given
+  a value. Point values, weights and caps are documented in `docs/API.md`.
+- **Workspace wiring test**: adding a package now fails loudly if it is missing
+  from the workspace list, the root tsconfig, the test path map or the Vitest
+  aliases — the last of which previously failed silently by resolving imports to
+  stale build output.
+
+### Changed
+
+- **Report schema 1.1** (additive): optional `events` section and optional
+  per-resource `health`. A 1.0 consumer sees the fields it already knows.
+- `PERF-QUERY-001`'s description now also covers `SELECT *`, which it reports at
+  INFO. The rule's meaning is unchanged.
+
+### Fixed
+
+- A loop-containment off-by-one meant a call on the first line of a loop body
+  was treated as outside the loop — which hid exactly the case the query-in-loop
+  rule exists to find.
+- A negative numeric argument was read as positive, so `TriggerClientEvent(event,
+  -1, …)` was not recognised as a broadcast.
+
+### False-positive control
+
+`Wait(0)` is a legitimate per-frame pattern and is never reported by
+`PERF-LOOP-001`. The `performance-smell` fixture carries it as a control, and
+two tests assert the rule stays silent on it. The generated 500-resource server
+in the benchmark is also asserted to produce no findings at all.
+
+### Known limitations
+
+Block structure is not a parse tree; a yield inside a called function is not
+followed (confidence drops, and the unfollowed call count is in the evidence);
+only literal arguments are read; database detection is framework-specific; only
+`.lua` files are analysed. See `docs/GATE_STATUS.md`.
+
 ## [0.2.0] — GATE 1: Static scanner
 
 Sentinel Forge can now scan a FiveM server. Five rules run against every scan,

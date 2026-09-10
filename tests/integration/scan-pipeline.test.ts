@@ -202,6 +202,85 @@ describe('scan pipeline', () => {
     expect(result.stderr).toContain('No server path is configured');
   });
 
+  it('detects every static performance smell in the performance fixture', async () => {
+    const payload = await scan('performance-smell', workspace);
+    const rules = payload.findings.map((finding) => finding.ruleId);
+    expect(rules).toContain('PERF-LOOP-001');
+    expect(rules).toContain('PERF-EVENT-001');
+    expect(rules).toContain('PERF-QUERY-001');
+  });
+
+  it('does not report the Wait(0) control loop in that fixture', async () => {
+    // hud.lua exists purely as a false-positive control for PERF-LOOP-001.
+    const payload = await scan('performance-smell', workspace);
+    const hudLoopFindings = payload.findings.filter(
+      (finding) => finding.ruleId === 'PERF-LOOP-001' && (finding as { file?: string }).file?.includes('hud.lua'),
+    );
+    expect(hudLoopFindings).toEqual([]);
+  });
+
+  it('scores health with deductions that sum to the score', async () => {
+    const result = await runCli(['health', '--server', fixturePath('mixed-server'), '--json'], workspace);
+    const payload = parseJsonOutput<{
+      health: {
+        score: number;
+        categories: { category: string; score: number; deductions: { points: number; findingId: string }[] }[];
+        unavailable?: Record<string, string>;
+        complete: boolean;
+      };
+    }>(result);
+
+    expect(payload.health.score).toBeGreaterThanOrEqual(0);
+    expect(payload.health.score).toBeLessThanOrEqual(100);
+    for (const category of payload.health.categories) {
+      const total = category.deductions.reduce((sum, deduction) => sum + deduction.points, 0);
+      expect(category.score, category.category).toBe(Math.max(0, 100 - total));
+    }
+    // Categories with no analysis behind them are named, not scored.
+    expect(payload.health.complete).toBe(false);
+    expect(Object.keys(payload.health.unavailable ?? {})).toContain('SECURITY');
+  });
+
+  it('reports 100 with no deductions on the healthy fixture', async () => {
+    const result = await runCli(['health', '--server', fixturePath('healthy-server'), '--json'], workspace);
+    const payload = parseJsonOutput<{ health: { score: number } }>(result);
+    expect(payload.health.score).toBe(100);
+    expect(result.exitCode).toBe(EXIT_CODES.SUCCESS);
+  });
+
+  it('shows one resource with its health, dependencies and events', async () => {
+    const result = await runCli(['resource', 'sf_shop', '--server', fixturePath('mixed-server'), '--json'], workspace);
+    const payload = parseJsonOutput<{
+      resource: { name: string };
+      health: { score: number };
+      dependencies: string[];
+      findings: { ruleId: string }[];
+    }>(result);
+
+    expect(payload.resource.name).toBe('sf_shop');
+    expect(payload.dependencies).toContain('sf_inventory');
+    expect(payload.findings.some((finding) => finding.ruleId === 'DEP-MISSING-001')).toBe(true);
+    expect(payload.health.score).toBeLessThan(100);
+  });
+
+  it('names the available resources when asked for one that does not exist', async () => {
+    const result = await runCli(['resource', 'sf_nope', '--server', fixturePath('mixed-server')], workspace);
+    expect(result.exitCode).toBe(EXIT_CODES.INVALID_INPUT);
+    expect(result.stderr).toContain('sf_core');
+  });
+
+  it('includes the event graph in the report', async () => {
+    const result = await runCli(['scan', '--server', fixturePath('performance-smell'), '--format', 'json'], workspace);
+    const report = JSON.parse(result.stdout) as {
+      events?: { eventCount: number; triggeredButNotRegistered: string[] };
+    };
+    expect(report.events?.eventCount).toBeGreaterThan(0);
+    // sf_heavy:position is registered in server.lua, so it resolves; the
+    // heartbeat event is triggered by the client and handled nowhere.
+    expect(report.events?.triggeredButNotRegistered).toContain('sf_heavy:heartbeat');
+    expect(report.events?.triggeredButNotRegistered).not.toContain('sf_heavy:position');
+  });
+
   it('honours a disabled rule from configuration', async () => {
     const { writeFile } = await import('node:fs/promises');
     await writeFile(

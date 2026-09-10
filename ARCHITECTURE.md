@@ -44,13 +44,16 @@ of *what changes together*, not by technical layer.
 | `@sentinel-forge/scanner` | Server discovery, resource discovery, manifest parsing, configuration analysis, the scan pipeline. | 1 ✅ |
 | `@sentinel-forge/dependencies` | Dependency graph construction and analysis. | 1 ✅ |
 | `@sentinel-forge/reports` | JSON and Markdown rendering. HTML arrives with the dashboard. | 1 ✅ |
-| `@sentinel-forge/analyzer` | Lua, event and database analysis; health scoring. | 2 |
+| `@sentinel-forge/lua` | Lua lexing and block structure, shared by manifest parsing and script analysis. | 2 ✅ |
+| `@sentinel-forge/analyzer` | Lua, event and database analysis; health scoring. | 2 ✅ |
+| `@sentinel-forge/engine` | The scan pipeline: composes discovery, analysis, scoring and storage. | 2 ✅ |
 | `@sentinel-forge/performance` | Baselines, samples, regression detection, correlation. | 3 |
 | `@sentinel-forge/security` | Secret scanning, obfuscation and remote-load indicators. | 4 |
 | `@sentinel-forge/integrity` | Integrity snapshots and comparison. | 4 |
 | `@sentinel-forge/runtime` | Ingestion of telemetry from the in-server collector. | 5 |
 
-Dependencies flow one way: `shared` ← `core` ← everything else. `shared` has no
+Dependencies flow one way: `shared` and `lua` ← `core` ← the analysis packages
+← `engine` ← the applications. `shared` has no
 imports outside itself, so contracts can be consumed by the CLI, the report
 writer, the dashboard and the MCP server without dragging platform code along.
 

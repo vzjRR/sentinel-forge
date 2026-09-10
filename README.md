@@ -37,12 +37,12 @@ by, or sponsored by Rockstar Games, Cfx.re, the FiveM project, or txAdmin.
 
 ## Current status
 
-**GATE 1 — Static scanner. Complete.**
+**GATE 2 — Diagnostic engine. Complete.**
 
-Sentinel Forge can now scan a FiveM server: it discovers resources, parses every
-manifest without executing it, resolves the dependency graph, checks the server
-configuration, and reports findings with evidence, severity and confidence.
-Results are recorded locally and can be written as JSON or Markdown.
+Sentinel Forge scans a FiveM server and diagnoses it: it discovers resources,
+parses every manifest and script without executing them, resolves the dependency
+graph, analyses loops, events and database access, and produces an explainable
+health score where every point deducted names the finding that caused it.
 
 Commands that belong to a later gate are present in the CLI and report
 `NOT IMPLEMENTED` with the gate that delivers them — they never return an empty
@@ -52,12 +52,13 @@ See [`docs/GATE_STATUS.md`](docs/GATE_STATUS.md) for exactly what exists today.
 
 | Available now | Delivered by a later gate |
 | --- | --- |
-| `sentinel scan` | `health`, `resource` (GATE 2) |
-| `sentinel dependencies` | `baseline`, `compare`, `incidents`, `purge` (GATE 3) |
-| `sentinel report` | `security`, `integrity` (GATE 4) |
-| `sentinel init`, `doctor`, `version`, `help` | dashboard (GATE 6), MCP (GATE 7) |
+| `sentinel scan` | `baseline`, `compare`, `incidents`, `purge` (GATE 3) |
+| `sentinel health` | `security`, `integrity` (GATE 4) |
+| `sentinel resource <name>` | dashboard (GATE 6) |
+| `sentinel dependencies` | MCP (GATE 7) |
+| `sentinel report`, `init`, `doctor`, `version`, `help` | |
 
-Five rules are implemented and run against every scan:
+Eight rules are implemented and run against every scan:
 
 | Rule | Detects |
 | --- | --- |
@@ -66,9 +67,13 @@ Five rules are implemented and run against every scan:
 | `CFG-ENSURE-MISSING-001` | `ensure`/`start` naming a resource that was not found. |
 | `DEP-MISSING-001` | Declared and discovered dependencies that do not resolve. |
 | `DEP-CYCLE-001` | Cycles in the dependency graph. |
+| `PERF-LOOP-001` | Continuous loops with no observable yield. `Wait(0)` yields — it is not reported. |
+| `PERF-EVENT-001` | Network events triggered from a per-frame loop. |
+| `PERF-QUERY-001` | Queries per loop iteration, unbounded SELECTs, `SELECT *`. |
 
-Performance, security, integrity and health analysis are not implemented yet;
-those report sections are absent rather than empty.
+Security, integrity and runtime analysis are not implemented yet; those report
+sections are absent rather than empty, and the matching health categories are
+reported as unavailable rather than scored.
 
 ## Requirements
 
@@ -90,6 +95,7 @@ sentinel="node apps/cli/dist/bin/sentinel.js"
 $sentinel init --server "/path/to/fxserver"
 $sentinel doctor
 $sentinel scan
+$sentinel health
 ```
 
 `init` creates `sentinel.config.json`, the local `.sentinel/` data directory and
@@ -145,7 +151,9 @@ packages/core         Config, logging, errors, filesystem, SQLite, rule engine
 packages/scanner      Server discovery, manifests, configuration analysis
 packages/dependencies Dependency graph and analysis
 packages/reports      JSON and Markdown rendering
-packages/analyzer     Lua, event, database, health (GATE 2)
+packages/lua          Lua lexing and block structure
+packages/analyzer     Lua, event and database analysis; health scoring
+packages/engine       The scan pipeline
 packages/performance  Baselines, regressions       (GATE 3)
 packages/security     Secrets, obfuscation         (GATE 4)
 packages/integrity    Snapshots and comparison     (GATE 4)

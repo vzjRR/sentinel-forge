@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-forge/reports",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Report rendering: JSON and Markdown.",
   "license": "SEE LICENSE IN LICENSE",
@@ -20,7 +20,7 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "@sentinel-forge/core": "0.2.0",
-    "@sentinel-forge/shared": "0.2.0"
+    "@sentinel-forge/core": "0.3.0",
+    "@sentinel-forge/shared": "0.3.0"
   }
 }

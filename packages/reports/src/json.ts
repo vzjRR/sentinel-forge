@@ -22,6 +22,7 @@ const KEY_ORDER: readonly (keyof SentinelReport)[] = [
   'resources',
   'findings',
   'dependencies',
+  'events',
   'performance',
   'security',
   'integrity',

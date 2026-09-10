@@ -86,7 +86,14 @@ Evidence describes observations. It never asserts causation.
 
 ## Report envelope
 
-`schemaVersion: "1.0"`.
+`schemaVersion: "1.1"`.
+
+Schema history:
+
+| Version | Change |
+| --- | --- |
+| 1.1 | Added the optional `events` section and the optional per-resource `health` object. Additive: a 1.0 consumer sees the fields it already knows, unchanged. |
+| 1.0 | Initial schema. |
 
 ```jsonc
 {
@@ -137,6 +144,77 @@ interface HealthScore {
 Every deduction names the finding that caused it. A score with no traceable
 deductions is a defect, not a summary. When data is missing, `complete` is
 `false` and `unavailable` says why — a category is never given a default value.
+
+#### How the score is computed
+
+1. **Each finding becomes a deduction.** Points by severity, at full confidence:
+
+   | Severity | Points |
+   | --- | --- |
+   | CRITICAL | 45 |
+   | HIGH | 25 |
+   | MEDIUM | 10 |
+   | LOW | 4 |
+   | INFO | 0 |
+
+   INFO deducts nothing: it is an observation, not a defect. A server does not
+   lose points for using the legacy manifest format, or for depending on a
+   resource that ships with the platform.
+
+2. **Points are weighted by confidence.** `points = round(severityPoints × confidence)`.
+   A finding the evidence half-supports moves the score half as far.
+
+3. **Each category scores `100 − sum(deductions)`,** floored at 0. The
+   deductions in a category always sum to its score.
+
+4. **The overall score is a weighted mean of the categories that were scored.**
+
+   | Category | Weight |
+   | --- | --- |
+   | Performance | 25 |
+   | Security | 25 |
+   | Reliability | 15 |
+   | Dependencies | 15 |
+   | Configuration | 10 |
+   | Integrity | 10 |
+
+   Weights are normalized across the categories actually scored, so an
+   unavailable category does not silently pull the average up or down.
+
+5. **Caps apply last**, because some findings make a high score misleading
+   regardless of the average:
+
+   | Condition | Ceiling |
+   | --- | --- |
+   | A CRITICAL finding at confidence ≥ 0.50 | 40 |
+   | A HIGH finding at confidence ≥ 0.75 | 75 |
+
+   A cap is always reported alongside the score, with the finding that triggered
+   it, and appears first in `primaryReasons`.
+
+Rule categories map onto health categories one to one: `PERFORMANCE`,
+`SECURITY`, `DEPENDENCIES`, `INTEGRITY` and `CONFIGURATION` keep their names,
+and `ERRORS` maps to `RELIABILITY`.
+
+### Event section
+
+```ts
+interface EventReportSection {
+  eventCount: number;
+  networkEventCount: number;
+  broadcastEventCount: number;
+  triggeredButNotRegistered: string[];  // triggered somewhere, handled nowhere
+  registeredButNotTriggered: string[];  // handled somewhere, never triggered
+  dynamicUsageCount: number;            // event name computed at runtime
+  events: { event: string; network: boolean; broadcast: boolean;
+            registeredBy: string[]; triggeredBy: string[] }[];
+}
+```
+
+Reported as data, not as findings: an event registered in one resource and
+triggered from another is normal architecture. `dynamicUsageCount` counts
+usages whose event name could not be read statically — those are excluded from
+the graph rather than guessed at.
 
 ## Rule catalog
 

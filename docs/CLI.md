@@ -20,6 +20,8 @@ says so explicitly and names the gate that delivers it.
 | `sentinel scan` | Scan a server and report findings. Records the result locally. |
 | `sentinel dependencies` | Show the dependency graph, unresolved edges and cycles. |
 | `sentinel report` | Write a JSON or Markdown report. |
+| `sentinel health` | Show the explainable server health score. |
+| `sentinel resource <name>` | Show health, findings, dependencies and events for one resource. |
 | `sentinel doctor` | Check that this environment can run Sentinel Forge. |
 | `sentinel version` | Print product, report schema and database schema versions. |
 | `sentinel help [command\|rules]` | Show usage, a command's help, or the rule catalog. |
@@ -28,8 +30,6 @@ says so explicitly and names the gate that delivers it.
 
 | Command | Gate |
 | --- | --- |
-| `sentinel health` | 2 |
-| `sentinel resource <name>` | 2 |
 | `sentinel baseline <create\|list\|show>` | 3 |
 | `sentinel compare <a> <b>` | 3 |
 | `sentinel incidents` | 3 |
@@ -189,9 +189,51 @@ stdout instead of the summary, so a pipeline does not need a second scan.
 | `CFG-ENSURE-MISSING-001` | An `ensure`/`start`/`restart` naming a resource that was not found. |
 | `DEP-MISSING-001` | A declared dependency, or an `@resource/file` reference, that does not resolve. |
 | `DEP-CYCLE-001` | A cycle in the dependency graph. |
+| `PERF-LOOP-001` | A continuous loop with no observable yield. `Wait(0)` yields, and is not reported. |
+| `PERF-EVENT-001` | A network event triggered from a per-frame loop. |
+| `PERF-QUERY-001` | A query executed per loop iteration; a SELECT with no WHERE or LIMIT; `SELECT *` (INFO). |
 
-Performance, security, integrity and health analysis are NOT IMPLEMENTED in this
-build; those report sections are absent rather than empty.
+Security and integrity analysis are NOT IMPLEMENTED in this build; those report
+sections are absent rather than empty, and the matching health categories are
+reported as unavailable rather than scored.
+
+## Health
+
+```bash
+sentinel health --server "/opt/fxserver"
+```
+
+```
+Health: 75/100  ###############.....
+
+Capped: A high-confidence HIGH finding caps the score at 75: Declared dependency was not found.
+
+  PERFORMANCE     81/100  ##########..  1 finding(s)
+  DEPENDENCIES    67/100  ########....  2 finding(s)
+  CONFIGURATION  100/100  ############  0 finding(s)
+
+Not scored:
+  SECURITY       Security analysis is NOT IMPLEMENTED in this build (GATE 4).
+  INTEGRITY      Integrity tracking is NOT IMPLEMENTED in this build (GATE 4).
+  RELIABILITY    Runtime error data is NOT IMPLEMENTED in this build (GATE 5).
+```
+
+Every deduction names the finding that caused it, and the deductions in a
+category sum to that category's score. A category with no analysis behind it is
+listed as unavailable rather than given a value — scoring what was never
+measured would claim a result that does not exist.
+
+See [API.md](API.md) for the point values, the category weights and the caps.
+
+## Resource detail
+
+```bash
+sentinel resource sf_shop --server "/opt/fxserver"
+```
+
+Shows one resource's health with its deductions, its findings with evidence,
+what it depends on, what depends on it, and the events it registers and
+triggers.
 
 ## Dependencies
 

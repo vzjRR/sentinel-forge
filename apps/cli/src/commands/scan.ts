@@ -66,10 +66,12 @@ export const scanCommand: CommandDefinition = {
     const counts = countBySeverity(findings);
     const failing = hasFailingFindings(findings, resolved.loaded.config.analysis.failOnSeverity);
 
+    const health = result.report.health;
     const lines: string[] = [
       `Scanned ${resolved.serverPath}`,
       '',
       formatTable([
+        ...(health === undefined ? [] : [['Health', `${String(health.score)}/100`] as const]),
         ['Resources', String(result.server.resources.length)],
         ['Files', String(result.server.resources.reduce((total, resource) => total + resource.files.length, 0))],
         ['Dependencies', String(result.graph.edges.length)],

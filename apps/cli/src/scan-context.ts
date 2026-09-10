@@ -18,7 +18,7 @@ import {
   type OpenedDatabase,
 } from '@sentinel-forge/core';
 import { isAtLeastSeverity, type Finding, type Severity } from '@sentinel-forge/shared';
-import { persistScan, scanServer, type ScanResult } from '@sentinel-forge/scanner';
+import { persistScan, scanServer, type ScanResult } from '@sentinel-forge/engine';
 import type { CommandContext } from './commands/types.js';
 
 export interface ResolvedScanContext {

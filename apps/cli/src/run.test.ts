@@ -60,14 +60,14 @@ describe('CLI exit-code contract', () => {
   });
 
   it('exits 2 for a command this build does not provide, and says which gate delivers it', async () => {
-    const result = await invoke(['health'], workspace);
+    const result = await invoke(['baseline'], workspace);
     expect(result.exitCode).toBe(EXIT_CODES.INVALID_INPUT);
     expect(result.stderr).toContain('NOT IMPLEMENTED');
-    expect(result.stderr).toContain('GATE 2');
+    expect(result.stderr).toContain('GATE 3');
   });
 
   it('writes a parseable error object to stdout under --json', async () => {
-    const result = await invoke(['health', '--json'], workspace);
+    const result = await invoke(['baseline', '--json'], workspace);
     const payload = JSON.parse(result.stdout) as { ok: boolean; error: Record<string, unknown> };
     expect(payload.ok).toBe(false);
     expect(payload.error['exitCode']).toBe(EXIT_CODES.INVALID_INPUT);
@@ -103,9 +103,9 @@ describe('CLI exit-code contract', () => {
     expect(implemented.stdout).toContain('sentinel scan');
     expect(implemented.stdout).not.toContain('NOT IMPLEMENTED');
 
-    const planned = await invoke(['health', '--help'], workspace);
+    const planned = await invoke(['baseline', '--help'], workspace);
     expect(planned.stdout).toContain('NOT IMPLEMENTED');
-    expect(planned.stdout).toContain('GATE 2');
+    expect(planned.stdout).toContain('GATE 3');
   });
 
   it('lists the rule catalog with each rule delivery status', async () => {

@@ -8,10 +8,12 @@
 
 import { dependenciesCommand } from './dependencies.js';
 import { doctorCommand } from './doctor.js';
+import { healthCommand } from './health.js';
 import { helpCommand, setCommandProvider } from './help.js';
 import { initCommand } from './init.js';
 import { notImplementedCommand } from './not-implemented.js';
 import { reportCommand } from './report.js';
+import { resourceCommand } from './resource.js';
 import { scanCommand } from './scan.js';
 import { versionCommand } from './version.js';
 import type { CommandDefinition } from './types.js';
@@ -19,18 +21,8 @@ import type { CommandDefinition } from './types.js';
 const COMMANDS: readonly CommandDefinition[] = Object.freeze([
   initCommand,
   scanCommand,
-  notImplementedCommand({
-    name: 'health',
-    summary: 'Show the explainable server health score.',
-    usage: 'health [--server <path>] [--json]',
-    gate: 2,
-  }),
-  notImplementedCommand({
-    name: 'resource',
-    summary: 'Show health, findings and dependencies for one resource.',
-    usage: 'resource <name> [--json]',
-    gate: 2,
-  }),
+  healthCommand,
+  resourceCommand,
   dependenciesCommand,
   notImplementedCommand({
     name: 'baseline',

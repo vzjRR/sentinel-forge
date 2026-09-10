@@ -14,13 +14,18 @@ export const PRODUCT_COPYRIGHT = '© 2026 Talal Al Ghafri. All Rights Reserved.'
  * Product version. Semantic Versioning (see docs/RELEASE.md).
  * Kept in sync with the root package.json version by `scripts/check-versions.mjs`.
  */
-export const PRODUCT_VERSION = '0.2.0';
+export const PRODUCT_VERSION = '0.3.0';
 
 /**
  * Report envelope schema version. Independent of PRODUCT_VERSION.
- * Breaking schema changes require a major bump and a documented migration note.
+ *
+ * 1.1 added the optional `events` section and the optional per-resource
+ * `health` object. Both are additive: a 1.0 consumer reading a 1.1 report sees
+ * the fields it already knows, unchanged.
+ *
+ * Breaking changes require a major bump and a documented migration note.
  */
-export const REPORT_SCHEMA_VERSION = '1.0';
+export const REPORT_SCHEMA_VERSION = '1.1';
 
 /**
  * Local database schema version tracked by the migration runner.

@@ -23,6 +23,8 @@ import {
 } from '@sentinel-forge/core';
 import {
   BASE_LIMITATIONS,
+  type EventReportSection,
+  type HealthCategory,
   compareFindings,
   isAtLeastSeverity,
   PRODUCT_VERSION,
@@ -41,11 +43,29 @@ import {
   type GraphResourceInput,
 } from '@sentinel-forge/dependencies';
 import path from 'node:path';
-import { discoverServer, type DiscoveredResource, type DiscoveredServer } from './discovery/discover.js';
-import { BUNDLED_SERVER_DATA_RESOURCES } from './discovery/platform-resources.js';
-import { parseServerConfig, type ParsedServerConfig } from './config/server-config.js';
-import { analyzeManifestStructure, analyzeMissingFiles } from './rules/manifest-rules.js';
-import { analyzeServerConfig } from './rules/config-rules.js';
+import {
+  analyzeManifestStructure,
+  analyzeMissingFiles,
+  analyzeServerConfig,
+  BUNDLED_SERVER_DATA_RESOURCES,
+  discoverServer,
+  matchGlob,
+  parseServerConfig,
+  type DiscoveredResource,
+  type DiscoveredServer,
+  type ParsedServerConfig,
+} from '@sentinel-forge/scanner';
+import {
+  analyzePerformance,
+  analyzeScript,
+  buildEventGraph,
+  computeHealth,
+  computeResourceHealth,
+  type EventGraph,
+  type ScriptAnalysis,
+  type ScriptSide,
+} from '@sentinel-forge/analyzer';
+import { readTextFileBounded } from '@sentinel-forge/core';
 
 export interface ScanOptions {
   readonly serverPath: string;
@@ -63,6 +83,12 @@ export interface ScanOptions {
   readonly logger?: Logger;
   /** Command name recorded with the scan, e.g. `scan` or `dependencies`. */
   readonly command: string;
+  /**
+   * When false, resource scripts are not read or analysed. Discovery and
+   * manifest analysis still run. Used by `dependencies`, which does not need
+   * script contents and should not pay for reading them.
+   */
+  readonly analyzeScripts?: boolean;
 }
 
 export interface ScanResult {
@@ -70,6 +96,8 @@ export interface ScanResult {
   readonly server: DiscoveredServer;
   readonly graph: DependencyGraph;
   readonly config?: ParsedServerConfig;
+  readonly eventGraph: EventGraph;
+  readonly scripts: readonly ScriptAnalysis[];
   /** Findings before the minimum-severity filter, for storage and counting. */
   readonly allFindings: readonly Finding[];
   readonly runId: string;
@@ -154,6 +182,100 @@ function toDescriptor(resource: DiscoveredResource): ResourceDescriptor {
   };
 }
 
+
+/** Health categories this build can actually score, with reasons for the rest. */
+export const SCORED_CATEGORIES: readonly HealthCategory[] = Object.freeze([
+  'PERFORMANCE',
+  'DEPENDENCIES',
+  'CONFIGURATION',
+]);
+
+export const UNSCORED_CATEGORY_REASONS: Readonly<Partial<Record<HealthCategory, string>>> = Object.freeze({
+  SECURITY: 'Security analysis is NOT IMPLEMENTED in this build (GATE 4).',
+  INTEGRITY: 'Integrity tracking is NOT IMPLEMENTED in this build (GATE 4).',
+  RELIABILITY: 'Runtime error data is NOT IMPLEMENTED in this build (GATE 5).',
+});
+
+/**
+ * Which side of the client/server split a file runs on, taken from the manifest
+ * declarations that reference it. A file matched by no declaration is analysed
+ * anyway — it may be loaded by another file — but its side is unknown.
+ */
+function resolveScriptSides(resource: DiscoveredResource): Map<string, ScriptSide> {
+  const sides = new Map<string, ScriptSide>();
+  const available = resource.files.map((file) => file.path);
+
+  for (const script of resource.manifest?.scripts ?? []) {
+    if (script.externalResource !== undefined) continue;
+    for (const match of matchGlob(script.pattern, available)) {
+      const existing = sides.get(match);
+      // A file declared on both sides is shared in practice.
+      sides.set(match, existing === undefined || existing === script.kind ? script.kind : 'shared');
+    }
+  }
+
+  return sides;
+}
+
+const ANALYZABLE_EXTENSIONS = new Set(['.lua']);
+
+/** Reads and analyses every Lua file in a resource. */
+async function analyzeResourceScripts(
+  serverRoot: string,
+  resource: DiscoveredResource,
+  options: ScanOptions,
+  limitations: { path: string; reason: string }[],
+): Promise<ScriptAnalysis[]> {
+  const sides = resolveScriptSides(resource);
+  const analyses: ScriptAnalysis[] = [];
+
+  for (const file of resource.files) {
+    if (!ANALYZABLE_EXTENSIONS.has(path.posix.extname(file.path).toLowerCase())) continue;
+    // The manifest is analysed by the scanner; re-reading it as a script would
+    // report the same declarations twice.
+    if (file.path === 'fxmanifest.lua' || file.path === '__resource.lua') continue;
+
+    let source: string;
+    try {
+      const read = await readTextFileBounded(path.join(serverRoot, ...file.serverPath.split('/')), {
+        root: serverRoot,
+        ...(options.maxFileBytes === undefined ? {} : { maxBytes: options.maxFileBytes }),
+        truncate: true,
+      });
+      if (read.truncated) {
+        limitations.push({
+          path: file.serverPath,
+          reason: `File exceeds the configured read limit; only the first ${String(read.bytesRead)} bytes were analysed.`,
+        });
+      }
+      source = read.content;
+    } catch (error) {
+      limitations.push({
+        path: file.serverPath,
+        reason: `Script could not be read: ${error instanceof Error ? error.message : 'unknown error'}`,
+      });
+      continue;
+    }
+
+    const analysis = analyzeScript(source, {
+      filePath: file.serverPath,
+      resource: resource.name,
+      side: sides.get(file.path) ?? 'unknown',
+    });
+
+    if (analysis.truncated) {
+      limitations.push({
+        path: file.serverPath,
+        reason: 'Script exceeded the analysis token budget; the remainder was not analysed.',
+      });
+    }
+
+    analyses.push(analysis);
+  }
+
+  return analyses;
+}
+
 export async function scanServer(options: ScanOptions): Promise<ScanResult> {
   const clock = options.clock ?? systemClock;
   const startedAtMs = clock.monotonicMs();
@@ -179,6 +301,20 @@ export async function scanServer(options: ScanOptions): Promise<ScanResult> {
     findings.push(...analyzeMissingFiles({ resource, clock }));
   }
 
+  const scripts: ScriptAnalysis[] = [];
+  const scriptLimitations: { path: string; reason: string }[] = [];
+
+  if (options.analyzeScripts !== false) {
+    for (const resource of server.resources) {
+      const analyses = await analyzeResourceScripts(server.root, resource, options, scriptLimitations);
+      scripts.push(...analyses);
+      for (const analysis of analyses) {
+        findings.push(...analyzePerformance({ script: analysis, clock }));
+      }
+    }
+  }
+
+  const eventGraph = buildEventGraph(scripts);
   const graph = buildDependencyGraph(server.resources.map(toGraphInput));
   const manifestPaths = new Map<string, string>(
     server.resources
@@ -223,8 +359,26 @@ export async function scanServer(options: ScanOptions): Promise<ScanResult> {
     findingsByResource.set(finding.resource, list);
   }
 
+  const scoredCategories = options.analyzeScripts === false
+    ? SCORED_CATEGORIES.filter((category) => category !== 'PERFORMANCE')
+    : SCORED_CATEGORIES;
+
+  const unscoredReasons: Partial<Record<HealthCategory, string>> = {
+    ...UNSCORED_CATEGORY_REASONS,
+    ...(options.analyzeScripts === false
+      ? { PERFORMANCE: 'Script analysis was not requested for this command.' }
+      : {}),
+  };
+
+  const health = computeHealth({
+    findings: reported,
+    availableCategories: scoredCategories,
+    unavailableReasons: unscoredReasons,
+  });
+
   const resources: ResourceReportEntry[] = server.resources.map((resource) => ({
     resource: toDescriptor(resource),
+    health: computeResourceHealth(resource.name, reported, scoredCategories, unscoredReasons),
     findingIds: findingsByResource.get(resource.name) ?? [],
   }));
 
@@ -248,9 +402,10 @@ export async function scanServer(options: ScanOptions): Promise<ScanResult> {
 
   const limitations = [
     ...BASE_LIMITATIONS,
-    'Health scoring is NOT IMPLEMENTED in this build; no score is reported.',
-    'Performance, security and integrity analysis are NOT IMPLEMENTED in this build. Those sections are absent rather than empty.',
+    'Performance analysis is static: it reads code, and does not measure a running server. Runtime timing arrives in GATE 3.',
+    'Security and integrity analysis are NOT IMPLEMENTED in this build; those report sections are absent rather than empty, and the corresponding health categories are reported as unavailable rather than scored.',
     ...server.limitations.map((limitation) => `Not analyzed: ${limitation.path} — ${limitation.reason}`),
+    ...scriptLimitations.map((limitation) => `Not fully analyzed: ${limitation.path} — ${limitation.reason}`),
   ];
 
   const report: SentinelReport = {
@@ -265,17 +420,48 @@ export async function scanServer(options: ScanOptions): Promise<ScanResult> {
       nodeVersion: process.version,
     },
     server: server.fingerprint,
+    health,
     resources,
     findings: reported,
     dependencies,
+    events: toEventSection(eventGraph),
     incidents: [],
     limitations,
   };
 
-  return { report, server, graph, ...(config === undefined ? {} : { config }), allFindings: enabled, runId, durationMs };
+  return {
+    report,
+    server,
+    graph,
+    ...(config === undefined ? {} : { config }),
+    eventGraph,
+    scripts,
+    allFindings: enabled,
+    runId,
+    durationMs,
+  };
 }
 
 /** Persists a scan result. Every write happens in one transaction. */
+/** Report view of the event graph: counts and cross-resource relationships. */
+function toEventSection(graph: EventGraph): EventReportSection {
+  return {
+    eventCount: graph.events.length,
+    networkEventCount: graph.events.filter((event) => event.network).length,
+    broadcastEventCount: graph.events.filter((event) => event.broadcast).length,
+    triggeredButNotRegistered: graph.triggeredButNotRegistered,
+    registeredButNotTriggered: graph.registeredButNotTriggered,
+    dynamicUsageCount: graph.dynamicUsageCount,
+    events: graph.events.map((event) => ({
+      event: event.event,
+      network: event.network,
+      broadcast: event.broadcast,
+      registeredBy: [...new Set(event.registrations.map((entry) => entry.resource))].sort(),
+      triggeredBy: [...new Set(event.triggers.map((entry) => entry.resource))].sort(),
+    })),
+  };
+}
+
 export function persistScan(driver: DatabaseDriver, result: ScanResult, command: string): void {
   const now = result.report.generatedAt;
   const serverId = result.server.id;

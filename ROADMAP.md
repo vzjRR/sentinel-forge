@@ -13,7 +13,7 @@ Current delivery status: [`docs/GATE_STATUS.md`](docs/GATE_STATUS.md).
 | --- | --- | --- |
 | 0 | Foundation | **Complete** |
 | 1 | Static scanner | **Complete** |
-| 2 | Diagnostic engine | Not started |
+| 2 | Diagnostic engine | **Complete** |
 | 3 | Performance intelligence | Not started |
 | 4 | Security and integrity | Not started |
 | 5 | Runtime resource | Not started |
@@ -38,10 +38,11 @@ scan storage; JSON and Markdown reports.
 Rules: `CFG-MANIFEST-001`, `CFG-MISSING-FILE-001`, `CFG-ENSURE-MISSING-001`,
 `DEP-MISSING-001`, `DEP-CYCLE-001`. Commands: `scan`, `dependencies`, `report`.
 
-## GATE 2 — Diagnostic engine
+## GATE 2 — Diagnostic engine *(complete)*
 
-Lua static analysis; event graph analysis; database query analysis; health
-scoring with traceable deductions; the evidence and finding engines end to end.
+Lua lexing and block structure; script analysis covering loops, threads, events
+and database access; event graph across resources; health scoring where every
+deduction names its finding; report schema 1.1.
 
 Rules: `PERF-LOOP-001`, `PERF-EVENT-001`, `PERF-QUERY-001`.
 Commands: `health`, `resource`.

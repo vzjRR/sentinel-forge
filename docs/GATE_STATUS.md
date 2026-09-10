@@ -6,13 +6,13 @@ The authoritative record of what exists in this build. Anything not listed as
 delivered does not exist, however completely it may be described elsewhere in
 the documentation.
 
-**Current build: 0.2.0 — GATE 1 complete.**
+**Current build: 0.3.0 — GATE 2 complete.**
 
 | Gate | Scope | Status |
 | --- | --- | --- |
 | 0 | Foundation | ✅ Complete |
 | 1 | Static scanner | ✅ Complete |
-| 2 | Diagnostic engine | ⬜ Not started |
+| 2 | Diagnostic engine | ✅ Complete |
 | 3 | Performance intelligence | ⬜ Not started |
 | 4 | Security and integrity | ⬜ Not started |
 | 5 | Runtime resource | ⬜ Not started |
@@ -232,25 +232,106 @@ Scan benchmark (Linux x64, Node 22.22.2): 10 resources ≈ 69 ms, 100 ≈ 399 ms
 | Health scoring contract | ✅ Defined in `@sentinel-forge/shared`, unimplemented by design |
 | A place to put the commands | ✅ `health` and `resource` registered, awaiting implementation |
 
-## GATE 2 — Diagnostic engine ⬜
+## GATE 2 — Diagnostic engine ✅
 
-**Next gate.** Lua static analysis, event graph analysis, database query
-analysis, and health scoring where every deduction traces to a finding.
+### Delivered
 
-Rules `PERF-LOOP-001`, `PERF-EVENT-001`, `PERF-QUERY-001`.
-Commands `health`, `resource`.
+| Area | What exists | Location |
+| --- | --- | --- |
+| Lua lexer | Full Lua 5.4 lexical grammar: names, keywords, decimal and hexadecimal numbers, all three string forms with escape decoding, both comment forms, operators. Token-budgeted, total, position-tracked. Shared with manifest parsing so the two cannot drift. | `packages/lua/src/lexer.ts` |
+| Block structure | Loop and block ranges derived from block delimiters, including if/elseif/else chains and functions nested in loops. Reports unbalanced source instead of producing confident nonsense. | `packages/lua/src/structure.ts` |
+| Call extraction | Qualified names (`Citizen.Wait`, `exports.oxmysql:execute`), literal string and number arguments including negative numbers, Lua call sugar, and an explicit flag when an argument is not a literal. | `packages/lua/src/calls.ts` |
+| Script analysis | Loops with continuity, yield state and shortest literal wait; thread bodies; event registrations and triggers with direction and broadcast detection; database calls with statement classification. | `packages/analyzer/src/lua/script.ts` |
+| Performance rules | `PERF-LOOP-001`, `PERF-EVENT-001`, `PERF-QUERY-001`. | `packages/analyzer/src/rules/performance.ts` |
+| Event graph | Cross-resource registration and trigger relationships, broadcast and network flags, events triggered-but-unhandled and registered-but-unused, and a count of usages whose name is computed at runtime. | `packages/analyzer/src/events/graph.ts` |
+| Health scoring | Traceable deductions weighted by confidence, per-category scores, normalized weighting across scored categories, documented caps, and unavailable categories reported with a reason. | `packages/analyzer/src/health/score.ts` |
+| Pipeline | Script reading and analysis wired into the scan; health computed for the server and for every resource. | `packages/engine/src/scan.ts` |
+| Commands | `health`, `resource <name>`. | `apps/cli/src/commands` |
+| Report schema 1.1 | Optional `events` section and optional per-resource `health`. Additive. | `packages/shared/src/report/schema.ts` |
 
-Exit criteria: each rule detects its case in `performance-smell`;
-`PERF-LOOP-001` does **not** fire on the `Wait(0)` control in that fixture; a
-health score is produced whose deductions sum to the score and each name a
-finding.
+### Architecture changes
+
+Two structural changes, both to remove a hazard rather than to add a feature:
+
+- **`@sentinel-forge/lua`** now owns Lua lexing. Manifest parsing and script
+  analysis previously would have carried separate copies of the same string and
+  comment rules, which is exactly the kind of duplication that drifts.
+- **`@sentinel-forge/engine`** now owns the scan pipeline, so the scanner does
+  not have to depend on the analyzer. The dashboard (GATE 6) and the MCP server
+  (GATE 7) will run the same pipeline rather than reimplementing it.
+
+### Rules implemented in this build
+
+| Rule | Severity | Notes |
+| --- | --- | --- |
+| `PERF-LOOP-001` | HIGH / MEDIUM | Only continuous loops (`while true`) with no visible yield. HIGH inside a created thread. Confidence 0.9 when the whole body is understood, 0.75 when it calls something unfollowable, 0.5 when the source did not balance. **`Wait(0)` yields and is never reported.** Bounded `for` loops and conditioned `while` loops are never reported. |
+| `PERF-EVENT-001` | MEDIUM | A network trigger inside a loop that runs with no wait or below a 50 ms interval. Local `TriggerEvent` and bounded loops are not reported. |
+| `PERF-QUERY-001` | HIGH / MEDIUM / LOW / INFO | Query per loop iteration (HIGH in a continuous loop, MEDIUM in a bounded one); SELECT with neither WHERE nor LIMIT (LOW, 0.6); `SELECT *` (INFO, 0.5). Parameterized, bounded queries are not reported. |
+
+Eight rules remain `NOT_IMPLEMENTED` with their target gates.
+
+### Validation
+
+| Check | Result |
+| --- | --- |
+| `npm run check:versions` | ✅ Pass |
+| `npm run check:migrations` | ✅ Pass |
+| `npm run lint` | ✅ Pass — 0 errors, 0 warnings |
+| `npm run typecheck` | ✅ Pass |
+| `npm run build` | ✅ Pass |
+| `npm test` | ✅ 470 tests, 52 files |
+
+### Exit criteria
+
+| Criterion | Met |
+| --- | --- |
+| Each rule detects its case in `performance-smell` | ✅ Asserted end to end |
+| `PERF-LOOP-001` does not fire on the `Wait(0)` control | ✅ Asserted in the rule tests and again in the pipeline test |
+| Health deductions sum to the score and each names a finding | ✅ Asserted for every category |
+| The healthy fixture scores 100 | ✅ Asserted |
+| No false positives on ordinary correct code | ✅ Asserted on a realistic snippet and on 500 generated resources |
+
+### Known limitations of this build
+
+1. **Block structure is not a parse tree.** The analysis knows which tokens are
+   inside a loop body. It does not know types, scopes, or what a variable holds.
+2. **A yield inside a called function is not followed.** A loop that yields
+   through a helper is reported, at reduced confidence, with the unfollowed call
+   count in the evidence.
+3. **Only literal arguments are read.** An event name or SQL statement built at
+   runtime is counted but not interpreted — a guessed value would be worse than
+   none.
+4. **Database detection is framework-specific.** `MySQL.*`, `oxmysql`,
+   `ghmattimysql` and `mysql-async` shapes are recognised; a project wrapping its
+   own database layer will not be.
+5. **Only `.lua` files are analysed.** JavaScript resources are inventoried and
+   hashed but not analysed.
+6. **Reliability, security and integrity are not scored** — they have no analysis
+   behind them yet, and are reported as unavailable.
+
+### Readiness for GATE 3
+
+| Requirement | Ready |
+| --- | --- |
+| Somewhere to store samples and baselines | ✅ `baselines`, `performance_samples` tables exist in schema 1 |
+| Somewhere to store incidents | ✅ `incidents`, `incident_events` tables exist |
+| A rule id for regressions | ✅ `PERF-REGRESSION-001` catalogued with rationale and false positives |
+| A measurement evidence type | ✅ `MEASUREMENT` with value, unit, sample count and baseline value |
+| Static performance findings to correlate against | ✅ Three rules producing them |
+| A place to put the commands | ✅ `baseline`, `compare`, `incidents`, `purge` registered |
 
 ## GATE 3 — Performance intelligence ⬜
 
-Not started. Baselines, sample storage, comparison, regression detection with
-absolute and relative thresholds, correlation and incident engines, retention
-and purge. Rule `PERF-REGRESSION-001`. Commands `baseline`, `compare`,
-`incidents`, `purge`.
+**Next gate.** Baselines, sample storage, comparison, regression detection using
+absolute and relative thresholds with sample counts and variance, the
+correlation and incident engines, retention and purge.
+
+Rule `PERF-REGRESSION-001`. Commands `baseline`, `compare`, `incidents`, `purge`.
+
+Exit criteria: a regression is detected between two baselines; a large relative
+change on a tiny absolute value is **not** reported; an incident timeline
+correlates a change with a performance shift and states a confidence without
+claiming causation.
 
 ## GATE 4 — Security and integrity ⬜
 

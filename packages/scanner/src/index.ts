@@ -17,4 +17,3 @@ export * from './discovery/discover.js';
 export * from './glob.js';
 export * from './rules/manifest-rules.js';
 export * from './rules/config-rules.js';
-export * from './scan.js';
