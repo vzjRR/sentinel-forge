@@ -25,6 +25,12 @@
     },
     {
       "path": "../../packages/reports"
+    },
+    {
+      "path": "../../packages/performance"
+    },
+    {
+      "path": "../../packages/incidents"
     }
   ],
   "exclude": [

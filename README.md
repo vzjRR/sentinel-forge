@@ -37,12 +37,13 @@ by, or sponsored by Rockstar Games, Cfx.re, the FiveM project, or txAdmin.
 
 ## Current status
 
-**GATE 2 — Diagnostic engine. Complete.**
+**GATE 3 — Performance intelligence. Complete.**
 
-Sentinel Forge scans a FiveM server and diagnoses it: it discovers resources,
-parses every manifest and script without executing them, resolves the dependency
-graph, analyses loops, events and database access, and produces an explainable
-health score where every point deducted names the finding that caused it.
+Sentinel Forge scans a FiveM server, diagnoses it, and tracks it over time. It
+parses manifests and scripts without executing them, resolves the dependency
+graph, analyses loops, events and database access, produces an explainable
+health score, and — the part it exists for — compares two points in time to
+answer *what changed, and what followed*.
 
 Commands that belong to a later gate are present in the CLI and report
 `NOT IMPLEMENTED` with the gate that delivers them — they never return an empty
@@ -52,13 +53,12 @@ See [`docs/GATE_STATUS.md`](docs/GATE_STATUS.md) for exactly what exists today.
 
 | Available now | Delivered by a later gate |
 | --- | --- |
-| `sentinel scan` | `baseline`, `compare`, `incidents`, `purge` (GATE 3) |
-| `sentinel health` | `security`, `integrity` (GATE 4) |
-| `sentinel resource <name>` | dashboard (GATE 6) |
-| `sentinel dependencies` | MCP (GATE 7) |
-| `sentinel report`, `init`, `doctor`, `version`, `help` | |
+| `sentinel scan`, `health`, `resource` | `security`, `integrity` (GATE 4) |
+| `sentinel dependencies`, `report` | runtime collector (GATE 5) |
+| `sentinel baseline`, `compare`, `incidents` | dashboard (GATE 6) |
+| `sentinel purge`, `init`, `doctor`, `version`, `help` | MCP (GATE 7) |
 
-Eight rules are implemented and run against every scan:
+Nine rules are implemented and run against every scan:
 
 | Rule | Detects |
 | --- | --- |
@@ -70,10 +70,40 @@ Eight rules are implemented and run against every scan:
 | `PERF-LOOP-001` | Continuous loops with no observable yield. `Wait(0)` yields — it is not reported. |
 | `PERF-EVENT-001` | Network events triggered from a per-frame loop. |
 | `PERF-QUERY-001` | Queries per loop iteration, unbounded SELECTs, `SELECT *`. |
+| `PERF-REGRESSION-001` | Timing regressions between baselines, guarded against noise and tiny absolute values. |
 
 Security, integrity and runtime analysis are not implemented yet; those report
 sections are absent rather than empty, and the matching health categories are
 reported as unavailable rather than scored.
+
+### What changed, and what followed
+
+```bash
+sentinel baseline create before-update
+#   ... update a resource ...
+sentinel baseline create after-update
+sentinel compare before-update after-update
+```
+
+```
+Resource changes:
+  MODIFIED  sf_core — file contents changed
+
+Findings introduced:
+  HIGH     PERF-LOOP-001   Loop without an observable yield [sf_core]
+
+Health: 100 -> 75 (-25)
+
+Incidents:
+  MEDIUM   confidence 0.85
+           Temporal correlation does not establish causation; these observations
+           are related in time and require verification.
+           → Inspect what changed in sf_core during this window.
+```
+
+Timing measurement needs the runtime collector (GATE 5). Until then a baseline
+records zero performance samples and says so — it never estimates a number it
+did not measure.
 
 ## Requirements
 
@@ -154,7 +184,8 @@ packages/reports      JSON and Markdown rendering
 packages/lua          Lua lexing and block structure
 packages/analyzer     Lua, event and database analysis; health scoring
 packages/engine       The scan pipeline
-packages/performance  Baselines, regressions       (GATE 3)
+packages/performance  Baselines, statistics, regression detection
+packages/incidents    Change correlation and incident timelines
 packages/security     Secrets, obfuscation         (GATE 4)
 packages/integrity    Snapshots and comparison     (GATE 4)
 packages/runtime      Runtime telemetry ingestion  (GATE 5)

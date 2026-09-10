@@ -32,6 +32,11 @@ export interface GlobalOptions {
   readonly database?: string;
   readonly help: boolean;
   readonly version: boolean;
+  /**
+   * Carry out an operation that would otherwise only report what it would do.
+   * Destructive commands run as a dry run without it.
+   */
+  readonly confirm: boolean;
 }
 
 export interface ParsedArgs {
@@ -88,6 +93,12 @@ export const OPTION_SPECS: readonly OptionSpec[] = Object.freeze([
     takesValue: true,
     valueName: 'path',
     description: 'Path to the local SQLite database.',
+  },
+  {
+    name: 'confirm',
+    aliases: ['--confirm'],
+    takesValue: false,
+    description: 'Carry out a destructive operation. Without it, such commands only report what they would do.',
   },
   { name: 'help', aliases: ['--help', '-h'], takesValue: false, description: 'Show help for a command.' },
   { name: 'version', aliases: ['--version', '-V'], takesValue: false, description: 'Print the product version.' },
@@ -163,6 +174,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     verbose: flags['verbose'] === true,
     help: flags['help'] === true,
     version: flags['version'] === true,
+    confirm: flags['confirm'] === true,
     ...(typeof flags['server'] === 'string' ? { server: flags['server'] } : {}),
     ...(typeof flags['output'] === 'string' ? { output: flags['output'] } : {}),
     ...(typeof format === 'string' && isReportFormat(format) ? { format } : {}),

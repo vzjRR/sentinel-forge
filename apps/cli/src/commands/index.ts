@@ -6,12 +6,16 @@
  * NOT IMPLEMENTED, so `sentinel help` describes the real state of the build.
  */
 
+import { baselineCommand } from './baseline.js';
+import { compareCommand } from './compare.js';
 import { dependenciesCommand } from './dependencies.js';
 import { doctorCommand } from './doctor.js';
 import { healthCommand } from './health.js';
+import { incidentsCommand } from './incidents.js';
 import { helpCommand, setCommandProvider } from './help.js';
 import { initCommand } from './init.js';
 import { notImplementedCommand } from './not-implemented.js';
+import { purgeCommand } from './purge.js';
 import { reportCommand } from './report.js';
 import { resourceCommand } from './resource.js';
 import { scanCommand } from './scan.js';
@@ -24,24 +28,9 @@ const COMMANDS: readonly CommandDefinition[] = Object.freeze([
   healthCommand,
   resourceCommand,
   dependenciesCommand,
-  notImplementedCommand({
-    name: 'baseline',
-    summary: 'Create, list and inspect performance baselines.',
-    usage: 'baseline <create|list|show> [--json]',
-    gate: 3,
-  }),
-  notImplementedCommand({
-    name: 'compare',
-    summary: 'Compare two baselines and report regressions.',
-    usage: 'compare <baseline-a> <baseline-b> [--json]',
-    gate: 3,
-  }),
-  notImplementedCommand({
-    name: 'incidents',
-    summary: 'List correlated incidents and their timelines.',
-    usage: 'incidents [--json]',
-    gate: 3,
-  }),
+  baselineCommand,
+  compareCommand,
+  incidentsCommand,
   notImplementedCommand({
     name: 'security',
     summary: 'Show security indicators with evidence and confidence.',
@@ -55,16 +44,7 @@ const COMMANDS: readonly CommandDefinition[] = Object.freeze([
     gate: 4,
   }),
   reportCommand,
-  notImplementedCommand({
-    name: 'purge',
-    summary: 'Delete locally stored Sentinel Forge data.',
-    usage: 'purge [--json]',
-    gate: 3,
-    details: [
-      'Deletes local diagnostic history according to the retention configuration.',
-      'Nothing belonging to the FiveM server is ever deleted.',
-    ],
-  }),
+  purgeCommand,
   doctorCommand,
   versionCommand,
   helpCommand,

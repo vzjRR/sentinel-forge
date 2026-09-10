@@ -14,7 +14,7 @@ Current delivery status: [`docs/GATE_STATUS.md`](docs/GATE_STATUS.md).
 | 0 | Foundation | **Complete** |
 | 1 | Static scanner | **Complete** |
 | 2 | Diagnostic engine | **Complete** |
-| 3 | Performance intelligence | Not started |
+| 3 | Performance intelligence | **Complete** |
 | 4 | Security and integrity | Not started |
 | 5 | Runtime resource | Not started |
 | 6 | Dashboard | Not started |
@@ -47,14 +47,19 @@ deduction names its finding; report schema 1.1.
 Rules: `PERF-LOOP-001`, `PERF-EVENT-001`, `PERF-QUERY-001`.
 Commands: `health`, `resource`.
 
-## GATE 3 — Performance intelligence
+## GATE 3 — Performance intelligence *(complete)*
 
-Baseline creation and storage; performance sample storage; baseline comparison;
-regression detection using absolute and relative thresholds with sample counts
-and variance; the correlation and incident engines; data retention and purge.
+Baselines with resource content hashes, configuration fingerprints, findings and
+health; sample storage with provenance; comparison across content, configuration,
+findings and performance; regression detection guarded by absolute and relative
+thresholds, sample counts and baseline stability; change correlation and incident
+timelines; retention and purge.
 
 Rules: `PERF-REGRESSION-001`. Commands: `baseline`, `compare`, `incidents`,
 `purge`.
+
+Timing measurement arrives with the runtime collector in GATE 5. Until then a
+baseline records zero samples and every comparison says so.
 
 ## GATE 4 — Security and integrity
 

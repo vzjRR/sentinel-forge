@@ -32,6 +32,12 @@
       "@sentinel-forge/analyzer": [
         "packages/analyzer/src/index.ts"
       ],
+      "@sentinel-forge/performance": [
+        "packages/performance/src/index.ts"
+      ],
+      "@sentinel-forge/incidents": [
+        "packages/incidents/src/index.ts"
+      ],
       "@sentinel-forge/engine": [
         "packages/engine/src/index.ts"
       ],

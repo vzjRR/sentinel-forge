@@ -47,7 +47,8 @@ of *what changes together*, not by technical layer.
 | `@sentinel-forge/lua` | Lua lexing and block structure, shared by manifest parsing and script analysis. | 2 ✅ |
 | `@sentinel-forge/analyzer` | Lua, event and database analysis; health scoring. | 2 ✅ |
 | `@sentinel-forge/engine` | The scan pipeline: composes discovery, analysis, scoring and storage. | 2 ✅ |
-| `@sentinel-forge/performance` | Baselines, samples, regression detection, correlation. | 3 |
+| `@sentinel-forge/performance` | Baselines, sample statistics, comparison, regression detection. | 3 ✅ |
+| `@sentinel-forge/incidents` | Change correlation and incident timelines. | 3 ✅ |
 | `@sentinel-forge/security` | Secret scanning, obfuscation and remote-load indicators. | 4 |
 | `@sentinel-forge/integrity` | Integrity snapshots and comparison. | 4 |
 | `@sentinel-forge/runtime` | Ingestion of telemetry from the in-server collector. | 5 |
@@ -165,6 +166,32 @@ sample count, a hash pair, a dependency edge.
 Evidence records describe observations. They never assert causation. Correlation
 between an evidence record and an outcome is expressed by the incident engine
 (GATE 3) with an explicit confidence value, and is worded as such.
+
+## 5a. Correlation without causation
+
+The product's core claim is that it can relate a change to an effect. The claim
+is only worth making if it is stated carefully, so one rule governs the whole
+correlation path:
+
+> Temporal proximity is evidence of relatedness. It is never proof of cause.
+
+Three mechanisms enforce it rather than leaving it to careful wording:
+
+- **Confidence is capped.** Correlation confidence cannot exceed 0.85 and
+  regression confidence cannot exceed 0.9, however clean the data. A number that
+  could reach 1.0 would eventually be read as certainty.
+- **Reasons travel with the number.** Every link carries the reasons behind its
+  confidence — same resource, how close in time, whether the effect followed the
+  change or preceded it — so a reader can disagree with the score.
+- **The output recommends verification.** An incident says what to inspect and
+  states explicitly that correlation does not establish causation. Tests assert
+  the wording, including that phrases like "caused by" do not appear.
+
+The same discipline applies to regression detection, where the interesting work
+is not noticing an increase but refusing the many increases that mean nothing: a
+large percentage on a tiny value, too few samples, a baseline too noisy to
+compare against, or two windows recorded under different load. Each is a
+documented false positive with an explicit guard and a test.
 
 ## 6. Storage
 

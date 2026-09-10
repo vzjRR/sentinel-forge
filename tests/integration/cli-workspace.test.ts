@@ -9,7 +9,7 @@
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { openDatabase, listAppliedMigrations } from '@sentinel-forge/core';
+import { listAppliedMigrations, listMigrations, openDatabase } from '@sentinel-forge/core';
 import { EXIT_CODES } from '@sentinel-forge/shared';
 import { createWorkspace, parseJsonOutput, removeWorkspace, runCli } from '../helpers/workspace.js';
 
@@ -47,8 +47,13 @@ describe('workspace lifecycle', () => {
 
     const database = openDatabase({ location: databasePath });
     try {
+      // Every migration shipped with the build is applied on init, and each is
+      // recorded with the checksum of the SQL that ran.
       const applied = listAppliedMigrations(database.driver);
-      expect(applied.map((entry) => entry.version)).toEqual([1]);
+      expect(applied.map((entry) => entry.version)).toEqual(
+        listMigrations().map((migration) => migration.version),
+      );
+      expect(applied.every((entry) => /^[0-9a-f]{64}$/.test(entry.checksum))).toBe(true);
     } finally {
       database.close();
     }

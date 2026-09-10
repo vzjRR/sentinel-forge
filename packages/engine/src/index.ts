@@ -10,3 +10,5 @@
  */
 
 export * from './scan.js';
+export * from './baseline-capture.js';
+export * from './incident-signals.js';

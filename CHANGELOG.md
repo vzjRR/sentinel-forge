@@ -6,6 +6,56 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 © 2026 Talal Al Ghafri. All Rights Reserved.
 
+## [0.4.0] — GATE 3: Performance intelligence
+
+Sentinel Forge can now answer "what changed, and what followed" — the question
+an operator actually asks when a server starts behaving differently.
+
+### Added
+
+- **`@sentinel-forge/performance`**: sample statistics (mean, median, p95,
+  standard deviation, coefficient of variation); regression detection with
+  absolute and relative thresholds, minimum sample counts, a baseline-noise
+  check and an optional player-count context check; baselines recording resource
+  content hashes, configuration fingerprint, findings and health; and sample
+  storage with provenance.
+- **`@sentinel-forge/incidents`**: change correlation and incident timelines,
+  with confidence built from shared resource, temporal proximity and ordering.
+- **Retention and purge**: policy-driven expiry per record type, a full-delete
+  scope, and per-table storage reporting. Purge is a dry run unless `--confirm`
+  is passed.
+- **Commands** `sentinel baseline`, `compare`, `incidents` and `purge`.
+- **Rule** `PERF-REGRESSION-001`.
+- **Database schema 2**: `baseline_resources`, `baseline_findings`, and health
+  and finding counts on `baselines`.
+- **`--confirm`** as a documented global flag for destructive operations.
+
+### The constraint this gate was built around
+
+No runtime collector exists before GATE 5, so nothing measures resource timing
+yet. Rather than estimate a number:
+
+- a baseline records what genuinely exists — content hashes, configuration
+  fingerprint, findings, health — and reports a sample count of zero;
+- `compare` states that performance was not compared, and why. A quietly omitted
+  section would read as "no regressions found", which is a different claim from
+  "nothing was measured";
+- the regression engine is complete and fully tested against supplied samples,
+  ready for a source.
+
+### Guarding the claim
+
+Correlation confidence is capped at 0.85 and regression confidence at 0.9,
+because neither establishes a cause. Every correlation carries the reasons behind
+its number, and tests assert that incident and regression wording never contains
+"caused by".
+
+### Fixed
+
+- Sample reads ordered by timestamp alone were non-deterministic when a
+  collector records several samples in the same millisecond. Ordering now breaks
+  the tie on row id, so two runs summarise identical data identically.
+
 ## [0.3.0] — GATE 2: Diagnostic engine
 
 Sentinel Forge now diagnoses, not just inventories: it analyses Lua source

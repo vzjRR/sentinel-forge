@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-forge/core",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Foundation runtime: configuration, structured logging, redaction, errors, secure filesystem access, local SQLite storage, rule engine interfaces.",
   "license": "SEE LICENSE IN LICENSE",
@@ -20,6 +20,6 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "@sentinel-forge/shared": "0.3.0"
+    "@sentinel-forge/shared": "0.4.0"
   }
 }

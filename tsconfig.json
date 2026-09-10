@@ -20,6 +20,12 @@
       "path": "packages/analyzer"
     },
     {
+      "path": "packages/performance"
+    },
+    {
+      "path": "packages/incidents"
+    },
+    {
       "path": "packages/engine"
     },
     {

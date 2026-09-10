@@ -14,7 +14,7 @@ export const PRODUCT_COPYRIGHT = '© 2026 Talal Al Ghafri. All Rights Reserved.'
  * Product version. Semantic Versioning (see docs/RELEASE.md).
  * Kept in sync with the root package.json version by `scripts/check-versions.mjs`.
  */
-export const PRODUCT_VERSION = '0.3.0';
+export const PRODUCT_VERSION = '0.4.0';
 
 /**
  * Report envelope schema version. Independent of PRODUCT_VERSION.
@@ -31,7 +31,7 @@ export const REPORT_SCHEMA_VERSION = '1.1';
  * Local database schema version tracked by the migration runner.
  * Incremented by adding a numbered migration under `database/migrations/`.
  */
-export const DATABASE_SCHEMA_VERSION = 1;
+export const DATABASE_SCHEMA_VERSION = 2;
 
 /**
  * Independence notice. Sentinel Forge is not affiliated with, endorsed by, or

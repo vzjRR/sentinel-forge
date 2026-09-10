@@ -6,14 +6,14 @@ The authoritative record of what exists in this build. Anything not listed as
 delivered does not exist, however completely it may be described elsewhere in
 the documentation.
 
-**Current build: 0.3.0 — GATE 2 complete.**
+**Current build: 0.4.0 — GATE 3 complete.**
 
 | Gate | Scope | Status |
 | --- | --- | --- |
 | 0 | Foundation | ✅ Complete |
 | 1 | Static scanner | ✅ Complete |
 | 2 | Diagnostic engine | ✅ Complete |
-| 3 | Performance intelligence | ⬜ Not started |
+| 3 | Performance intelligence | ✅ Complete |
 | 4 | Security and integrity | ⬜ Not started |
 | 5 | Runtime resource | ⬜ Not started |
 | 6 | Dashboard | ⬜ Not started |
@@ -320,24 +320,110 @@ Eight rules remain `NOT_IMPLEMENTED` with their target gates.
 | Static performance findings to correlate against | ✅ Three rules producing them |
 | A place to put the commands | ✅ `baseline`, `compare`, `incidents`, `purge` registered |
 
-## GATE 3 — Performance intelligence ⬜
+## GATE 3 — Performance intelligence ✅
 
-**Next gate.** Baselines, sample storage, comparison, regression detection using
-absolute and relative thresholds with sample counts and variance, the
-correlation and incident engines, retention and purge.
+### Delivered
 
-Rule `PERF-REGRESSION-001`. Commands `baseline`, `compare`, `incidents`, `purge`.
+| Area | What exists | Location |
+| --- | --- | --- |
+| Sample statistics | Mean, median, p95, min, max, standard deviation and coefficient of variation, with non-finite values discarded rather than propagated. | `packages/performance/src/statistics.ts` |
+| Regression detection | Absolute and relative thresholds, minimum sample counts, a baseline-noise check, an optional player-count context check, and confidence built from sample count, separation and magnitude. | `packages/performance/src/regression.ts` |
+| Baselines | Capture, list, show and delete, with resource content hashes, configuration fingerprint, the findings that stood and the health score. | `packages/performance/src/baseline.ts` |
+| Sample storage | Recording and querying measured samples with provenance, ready for the runtime collector. | `packages/performance/src/baseline.ts` |
+| Comparison | Resource added/removed/modified with details, configuration drift, findings introduced and resolved, health delta, and performance when samples exist on both sides. | `packages/performance/src/compare.ts` |
+| Correlation | Pairs changes with the effects that follow them, with confidence built from shared resource, temporal proximity and ordering — capped so correlation can never read as proof. | `packages/incidents/src/correlation.ts` |
+| Incidents | Timelines grouped by window, with severity, confidence, affected resources, the links that justified grouping, and a recommendation to verify rather than a stated cause. | `packages/incidents/src/incident.ts` |
+| Retention and purge | Policy-driven expiry per record type, `ALL` scope for a full delete, dry run by default, and per-table storage reporting. | `packages/core/src/db/retention.ts` |
+| Commands | `baseline`, `compare`, `incidents`, `purge`. | `apps/cli/src/commands` |
+| Database schema 2 | `baseline_resources`, `baseline_findings`, and health/finding counts on `baselines`. | `database/migrations/0002_baselines_and_incidents.sql` |
 
-Exit criteria: a regression is detected between two baselines; a large relative
-change on a tiny absolute value is **not** reported; an incident timeline
-correlates a change with a performance shift and states a confidence without
-claiming causation.
+### The honest constraint in this gate
+
+**No runtime collector exists before GATE 5, so nothing measures resource
+timing yet.** That shaped the design rather than being worked around:
+
+- A baseline records the data that genuinely exists today — resource content
+  hashes, configuration fingerprint, findings, health score — and reports a
+  sample count of **zero**. It does not estimate timing from static analysis.
+- `compare` states plainly that performance was not compared, and why. A section
+  quietly omitted would read as "no regressions found", which is a different
+  claim from "nothing was measured".
+- The regression engine is complete and fully tested against supplied samples.
+  When the collector lands, it has a source; until then it has none, and says so.
+
+### Guarding against false positives
+
+`PERF-REGRESSION-001`'s documented false positives are each handled explicitly
+and each has a test:
+
+| Case | Handling |
+| --- | --- |
+| Large percentage on a tiny absolute value | Absolute threshold (default 0.2 ms). 0.01 → 0.04 ms is +300% and is not reported. |
+| Too few samples | Minimum 8 per side; below that the verdict is `INSUFFICIENT_SAMPLES`, not "no regression". |
+| Noisy baseline | A baseline varying by more than 75% of its own mean is `BASELINE_TOO_NOISY`. |
+| Different load | An optional player-count delta check yields `CONTEXT_MISMATCH`. |
+| Improvement | Reported as `IMPROVEMENT`, not as a regression. |
+
+Confidence from recorded samples is capped at 0.9, and correlation confidence at
+0.85: neither establishes a cause.
+
+### Validation
+
+| Check | Result |
+| --- | --- |
+| `npm run check:versions` | ✅ Pass |
+| `npm run check:migrations` | ✅ Pass |
+| `npm run lint` | ✅ Pass — 0 errors, 0 warnings |
+| `npm run typecheck` | ✅ Pass |
+| `npm run build` | ✅ Pass |
+| `npm test` | ✅ 552 tests, 60 files |
+
+### Exit criteria
+
+| Criterion | Met |
+| --- | --- |
+| A regression is detected between two baselines | ✅ Asserted with supplied samples |
+| A large relative change on a tiny absolute value is not reported | ✅ Asserted |
+| An incident correlates a change with an effect and states a confidence | ✅ Asserted end to end on a real server tree |
+| Causation is never claimed | ✅ Asserted against the wording of both the incident summary and the regression finding |
+| The server is never modified | ✅ Asserted across the whole lifecycle, including purge |
+
+### Known limitations of this build
+
+1. **No measured timing.** Baselines record zero samples until GATE 5.
+2. **Incident timestamps are baseline capture times**, not runtime instants, so
+   an incident describes a window rather than a moment.
+3. **Correlation is pairwise.** It relates one change to one effect; it does not
+   build multi-step causal chains, and deliberately does not try to.
+4. **Purge is per server or global.** There is no per-baseline or per-rule
+   selective expiry.
+
+### Readiness for GATE 4
+
+| Requirement | Ready |
+| --- | --- |
+| Redaction at every output boundary | ✅ Delivered in GATE 0, tested against the security fixture |
+| File hashes and inventories per resource | ✅ Recorded on every scan and in every baseline |
+| Integrity tables | ✅ `integrity_snapshots`, `integrity_entries` in schema 1 |
+| Security finding storage with a redacted-excerpt contract | ✅ `security_findings` in schema 1 |
+| Rule ids for what GATE 4 detects | ✅ Seven catalogued with rationale and false positives |
+| A fixture with planted indicators | ✅ `security-indicators`, with fictional placeholders |
+| Lua analysis to build detection on | ✅ Calls, strings and structure from GATE 2 |
 
 ## GATE 4 — Security and integrity ⬜
 
-Not started. Secret scanning, obfuscation indicators, remote-load detection,
-suspicious file detection, integrity snapshots and comparison. Seven rules.
-Commands `security`, `integrity`.
+**Next gate.** Secret scanning with redaction, obfuscation indicators,
+remote-load detection, dynamic execution detection, suspicious file detection,
+integrity snapshots and comparison.
+
+Rules `SEC-SECRET-001`, `SEC-WEBHOOK-001`, `SEC-OBFUSCATION-001`,
+`SEC-REMOTE-LOAD-001`, `SEC-DYNAMIC-EXEC-001`, `SEC-SUSPICIOUS-FILE-001`,
+`INT-CHANGE-001`. Commands `security`, `integrity`.
+
+Exit criteria: every indicator in the `security-indicators` fixture is detected;
+**no raw secret value appears anywhere in output**; obfuscation is reported as an
+indicator requiring review rather than as malice; integrity comparison reports
+added, modified and deleted files between two snapshots.
 
 ## GATE 5 — Runtime resource ⬜
 

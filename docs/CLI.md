@@ -22,6 +22,10 @@ says so explicitly and names the gate that delivers it.
 | `sentinel report` | Write a JSON or Markdown report. |
 | `sentinel health` | Show the explainable server health score. |
 | `sentinel resource <name>` | Show health, findings, dependencies and events for one resource. |
+| `sentinel baseline <create\|list\|show\|delete>` | Record and inspect baselines. |
+| `sentinel compare <a> <b>` | Compare two baselines and report what changed. |
+| `sentinel incidents` | List correlated incidents and their timelines. |
+| `sentinel purge [retention\|all]` | Delete locally stored data. Dry run unless `--confirm`. |
 | `sentinel doctor` | Check that this environment can run Sentinel Forge. |
 | `sentinel version` | Print product, report schema and database schema versions. |
 | `sentinel help [command\|rules]` | Show usage, a command's help, or the rule catalog. |
@@ -30,10 +34,6 @@ says so explicitly and names the gate that delivers it.
 
 | Command | Gate |
 | --- | --- |
-| `sentinel baseline <create\|list\|show>` | 3 |
-| `sentinel compare <a> <b>` | 3 |
-| `sentinel incidents` | 3 |
-| `sentinel purge` | 3 |
 | `sentinel security` | 4 |
 | `sentinel integrity <snapshot\|compare>` | 4 |
 
@@ -52,6 +52,7 @@ never confused with an unknown command, and never returns an empty result.
 | `--format` | `json`\|`markdown` | Report output format. `html` is NOT IMPLEMENTED and is delivered with the dashboard in GATE 6. |
 | `--config` | path | Path to `sentinel.config.json`. |
 | `--database` | path | Path to the local SQLite database. |
+| `--confirm` | | Carry out a destructive operation. Without it, such commands only report what they would do. |
 | `--help`, `-h` | | Show help for a command. |
 | `--version`, `-V` | | Print the product version. |
 
@@ -224,6 +225,87 @@ listed as unavailable rather than given a value — scoring what was never
 measured would claim a result that does not exist.
 
 See [API.md](API.md) for the point values, the category weights and the caps.
+
+## Baselines and comparison
+
+This is the workflow the product is built around: record what the server looked
+like, make a change, record it again, and ask what moved.
+
+```bash
+sentinel baseline create before-update
+#   ... update a resource ...
+sentinel baseline create after-update
+sentinel compare before-update after-update
+```
+
+```
+Comparing "before-update" with "after-update"
+
+  Resources changed    1
+  Configuration        unchanged
+  Findings introduced  1
+  Health               100 -> 75 (-25)
+  Incidents            1
+
+Resource changes:
+  MODIFIED  sf_core
+            File contents changed.
+
+Findings introduced:
+  HIGH     PERF-LOOP-001   Loop without an observable yield [sf_core]
+
+Incidents:
+  MEDIUM   confidence 0.85
+           1 change(s) and 2 effect(s) were observed in the same window. …
+           Temporal correlation does not establish causation; these observations
+           are related in time and require verification.
+           → Inspect what changed in sf_core during this window.
+```
+
+A baseline records resource content hashes, the configuration fingerprint, the
+findings that stood and the health score.
+
+**Performance samples are recorded only if something collected them.** No
+runtime collector exists before GATE 6, so a baseline taken by this build
+reports zero samples, and `compare` states that performance was not compared
+rather than implying that no regression was found.
+
+### Regression detection
+
+When samples exist on both sides, a change is only reported as a regression if
+it clears every guard:
+
+| Guard | Default |
+| --- | --- |
+| Absolute increase | ≥ 0.2 ms — a large percentage on a tiny value is not a regression |
+| Relative increase | ≥ 50% |
+| Samples per side | ≥ 8 |
+| Baseline stability | Coefficient of variation ≤ 0.75 |
+
+Anything that fails a guard is reported with the reason (`BELOW_ABSOLUTE_THRESHOLD`,
+`INSUFFICIENT_SAMPLES`, `BASELINE_TOO_NOISY`, `CONTEXT_MISMATCH`), never silently
+dropped.
+
+## Incidents
+
+```bash
+sentinel incidents
+```
+
+An incident groups changes and effects observed in the same window, with a
+timeline, the resources involved and a confidence that they are related.
+Confidence is capped at 0.85: **an incident never names a cause.**
+
+## Purge
+
+```bash
+sentinel purge              # dry run: reports what would be deleted
+sentinel purge --confirm    # expire records past their retention windows
+sentinel purge all --confirm
+```
+
+Purge is a dry run unless `--confirm` is passed, and only ever touches Sentinel
+Forge's own database. The FiveM server is never modified.
 
 ## Resource detail
 

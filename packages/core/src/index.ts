@@ -29,6 +29,7 @@ export * from './db/node-sqlite.js';
 export * from './db/migrate.js';
 export * from './db/open.js';
 export * from './db/repository.js';
+export * from './db/retention.js';
 
 export * from './rules/rule.js';
 export * from './rules/registry.js';

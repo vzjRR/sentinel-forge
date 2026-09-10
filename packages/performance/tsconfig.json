@@ -16,21 +16,6 @@
     },
     {
       "path": "../core"
-    },
-    {
-      "path": "../scanner"
-    },
-    {
-      "path": "../dependencies"
-    },
-    {
-      "path": "../analyzer"
-    },
-    {
-      "path": "../performance"
-    },
-    {
-      "path": "../incidents"
     }
   ]
 }

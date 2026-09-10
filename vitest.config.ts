@@ -22,6 +22,8 @@ const workspaceAliases = {
   '@sentinel-forge/scanner': path.resolve(rootDirectory, 'packages/scanner/src/index.ts'),
   '@sentinel-forge/dependencies': path.resolve(rootDirectory, 'packages/dependencies/src/index.ts'),
   '@sentinel-forge/analyzer': path.resolve(rootDirectory, 'packages/analyzer/src/index.ts'),
+  '@sentinel-forge/performance': path.resolve(rootDirectory, 'packages/performance/src/index.ts'),
+  '@sentinel-forge/incidents': path.resolve(rootDirectory, 'packages/incidents/src/index.ts'),
   '@sentinel-forge/engine': path.resolve(rootDirectory, 'packages/engine/src/index.ts'),
   '@sentinel-forge/reports': path.resolve(rootDirectory, 'packages/reports/src/index.ts'),
   '@sentinel-forge/cli': path.resolve(rootDirectory, 'apps/cli/src/index.ts'),
