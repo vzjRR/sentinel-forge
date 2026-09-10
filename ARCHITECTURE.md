@@ -38,12 +38,12 @@ of *what changes together*, not by technical layer.
 
 | Package | Responsibility | Gate |
 | --- | --- | --- |
-| `@sentinel-forge/shared` | Types and pure functions: severity, confidence, evidence, findings, health, rule catalog, report schema. No I/O. | 0 |
-| `@sentinel-forge/core` | Foundation runtime: configuration, logging, redaction, errors, contained filesystem access, hashing, SQLite, rule engine interfaces. | 0 |
-| `@sentinel-forge/cli` | The `sentinel` command surface. | 0 |
-| `@sentinel-forge/scanner` | Server discovery, resource discovery, manifest parsing. | 1 |
-| `@sentinel-forge/dependencies` | Dependency graph construction and analysis. | 1 |
-| `@sentinel-forge/reports` | JSON, Markdown and HTML rendering. | 1 |
+| `@sentinel-forge/shared` | Types and pure functions: severity, confidence, evidence, findings, health, rule catalog, report schema. No I/O. | 0 ✅ |
+| `@sentinel-forge/core` | Foundation runtime: configuration, logging, redaction, errors, contained filesystem access, hashing, SQLite, storage, rule engine interfaces. | 0 ✅ |
+| `@sentinel-forge/cli` | The `sentinel` command surface. | 0 ✅ |
+| `@sentinel-forge/scanner` | Server discovery, resource discovery, manifest parsing, configuration analysis, the scan pipeline. | 1 ✅ |
+| `@sentinel-forge/dependencies` | Dependency graph construction and analysis. | 1 ✅ |
+| `@sentinel-forge/reports` | JSON and Markdown rendering. HTML arrives with the dashboard. | 1 ✅ |
 | `@sentinel-forge/analyzer` | Lua, event and database analysis; health scoring. | 2 |
 | `@sentinel-forge/performance` | Baselines, samples, regression detection, correlation. | 3 |
 | `@sentinel-forge/security` | Secret scanning, obfuscation and remote-load indicators. | 4 |
@@ -120,6 +120,36 @@ The catalog in `shared/rules/catalog.ts` is the published list of rule ids, with
 each rule's status and the gate that delivers it. The registry cross-checks
 every registration against the catalog, so a rule cannot quietly drift from its
 published contract.
+
+## 4a. Reading a manifest without running it
+
+A FiveM manifest is a Lua file. The obvious implementation — evaluate it in a
+Lua sandbox and read the resulting table — is the one thing this product cannot
+do: a manifest belongs to a resource the operator has not yet reviewed, and
+executing it is exactly the risk Sentinel Forge exists to reduce.
+
+So the manifest is lexed and parsed as data. The lexer covers the Lua lexical
+grammar the format uses (all three string forms, long brackets, comments,
+numbers, punctuation); the parser recognises the declarative statement shapes
+(`directive 'value'`, `directive { … }`, call syntax, and the two-value
+`data_file`) and skips anything else.
+
+Two consequences are deliberate:
+
+- **A manifest that computes a path is not guessed at.** A value built by
+  concatenation yields no literal, so the declaration is skipped rather than
+  half-reported. Reporting `client.lua` when the source said `'client' .. v ..
+  '.lua'` would be a fabricated finding.
+- **A broken manifest still yields precise findings.** An unterminated string is
+  reported at its opening quote, and the declarations before it stay usable, so
+  the operator gets a line number rather than "the file could not be read".
+
+Behaviour that could not be derived from the format itself was verified against
+official Cfx.re documentation, and three of those checks changed the
+implementation: `/`-prefixed dependency entries are runtime constraints rather
+than resources; `ensure` accepts a `[category]` name; and `provide` satisfies
+another resource's dependency. Each of those would otherwise have produced false
+positives on ordinary servers.
 
 ## 5. Evidence
 

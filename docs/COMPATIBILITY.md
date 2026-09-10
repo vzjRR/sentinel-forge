@@ -6,7 +6,7 @@ This document records what has actually been tested. It does not claim
 compatibility that has not been verified — a diagnostic tool that is wrong about
 its own environment cannot be trusted about anything else.
 
-Last updated: GATE 0.
+Last updated: GATE 1.
 
 ## Node.js
 
@@ -44,24 +44,39 @@ Path handling is platform-aware by construction, but "written for it" is not
 
 ## FiveM
 
-**No FiveM runtime integration exists in this build.** GATE 0 delivers no
-scanning and no runtime collector, so there is nothing to claim compatibility
-for yet.
+GATE 1 delivers static analysis of a server directory. There is still **no
+runtime integration**: no FiveM API is called anywhere in the product, and
+nothing is collected from a running server.
 
-What GATE 1 and later will target:
+The manifest and configuration behaviour below was verified against official
+Cfx.re documentation and the official server data repository. Facts taken from
+those sources are cited; nothing in this table is inferred.
 
-| Surface | Planned support |
+| Surface | Support | Source |
+| --- | --- | --- |
+| `fxmanifest.lua` | Parsed. Lua, semi-declarative, never executed. | [Resource manifest](https://docs.fivem.net/docs/scripting-reference/resource-manifest/) |
+| `__resource.lua` | Parsed. Reported at INFO as the legacy format. | Same |
+| `fx_version` values | `cerulean`, `bodacious`, `adamant` recognised. An unknown value is reported at LOW severity and 0.5 confidence, because a newer version may exist than this build knows about. | Same |
+| `game` / `games` | Both spellings. `gta5`, `rdr3`, `common` recognised. | Same |
+| `client_script(s)`, `server_script(s)`, `shared_script(s)` | Parsed, globs resolved. | Same |
+| `file` / `files`, `ui_page` | Parsed, globs resolved. | Same |
+| `dependency` / `dependencies` | Parsed. Entries beginning with `/` (`/server:5104`, `/onesync`, `/gameBuild:h4`, `/policy:…`) are runtime constraints, not resources, and are excluded from the graph. | Same |
+| `provide` | Parsed. A provided name satisfies other resources' dependencies on it. | Same |
+| `data_file` | Parsed as `data_file 'TYPE' 'path'`. | Same |
+| Globs | `*` non-recursive, `**` and `**/` recursive, `**/prefix_*.ext` supported. | Same |
+| `server.cfg` | Parsed: `ensure`, `start`, `stop`, `restart`, `set`/`sets`/`setr`, `exec`. | [Server commands](https://docs.fivem.net/docs/server-manual/server-commands/) |
+| Category targets | `ensure [managers]` and similar affect every resource in a category and are never reported as a missing resource. | Same |
+| `[category]` directories | Resources nested one level inside a bracketed directory are discovered. | [cfx-server-data](https://github.com/citizenfx/cfx-server-data) |
+| Bundled resources | `baseevents`, `runcode`, `mapmanager`, `spawnmanager`, `player-data`, `playernames`, `chat-theme-example`, `basic-gamemode`, `example-loadscreen` are treated as platform-provided. | Same |
+
+### Not yet supported
+
+| Surface | Status |
 | --- | --- |
-| `fxmanifest.lua` | Primary manifest format. |
-| `__resource.lua` | Legacy manifest format. |
-| `server.cfg` | Configuration parsing, `ensure`/`start` directives. |
-| `resources/` layout | Configurable, including nested category directories. |
-
-Every FiveM API used by the runtime collector (GATE 5) will be verified against
-official Cfx.re documentation and tested before it is relied on. Where an API
-does not exist or does not expose what is needed, the limitation is documented
-and the closest safe alternative is implemented. Runtime data is never
-synthesised.
+| `exec`-ed configuration files | Parsed as a directive, but the referenced file is not followed. Resources started only by a nested config are not yet seen. |
+| Runtime constraint evaluation | Constraints are listed, not checked against a server build. |
+| `escrow_ignore` and vendor-specific directives | Recorded as unknown directives at INFO; not interpreted. |
+| Conditional logic in a manifest | Not evaluated. A manifest that computes a path at load time yields no path to check, and the declaration is skipped rather than guessed at. |
 
 ## Server layouts
 
@@ -82,7 +97,7 @@ synthesised.
 
 ## Known limitations
 
-1. No analysis capability exists in this build (GATE 0 is the foundation).
+1. Static analysis only. No runtime data is collected (GATE 5).
 2. Windows and macOS are untested.
 3. `node:sqlite` is experimental upstream.
 4. Traversal does not follow symlinks by default; servers that rely on

@@ -12,7 +12,7 @@ Current delivery status: [`docs/GATE_STATUS.md`](docs/GATE_STATUS.md).
 | Gate | Scope | Status |
 | --- | --- | --- |
 | 0 | Foundation | **Complete** |
-| 1 | Static scanner | Not started |
+| 1 | Static scanner | **Complete** |
 | 2 | Diagnostic engine | Not started |
 | 3 | Performance intelligence | Not started |
 | 4 | Security and integrity | Not started |
@@ -28,14 +28,15 @@ configuration system, structured logging, redaction, error model, CLI skeleton,
 SQLite abstraction and migrations, rule interfaces, contained filesystem
 utilities, report schema, test infrastructure, synthetic fixtures, documentation.
 
-## GATE 1 — Static scanner
+## GATE 1 — Static scanner *(complete)*
 
-Server discovery; resource discovery; `fxmanifest.lua` and `__resource.lua`
-parsing; missing-file detection; dependency extraction and graph construction;
-configuration checks; JSON and Markdown reports.
+Server and resource discovery; `fxmanifest.lua` and `__resource.lua` parsing
+without execution; glob resolution and missing-file detection; dependency
+extraction, `provide` resolution and cycle detection; `server.cfg` analysis;
+scan storage; JSON and Markdown reports.
 
-Rules: `CFG-MANIFEST-001`, `CFG-MISSING-FILE-001`, `DEP-MISSING-001`,
-`DEP-CYCLE-001`. Commands: `scan`, `dependencies`, `report`.
+Rules: `CFG-MANIFEST-001`, `CFG-MISSING-FILE-001`, `CFG-ENSURE-MISSING-001`,
+`DEP-MISSING-001`, `DEP-CYCLE-001`. Commands: `scan`, `dependencies`, `report`.
 
 ## GATE 2 — Diagnostic engine
 

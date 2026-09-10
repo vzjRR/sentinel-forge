@@ -1,6 +1,6 @@
 {
   "name": "sentinel-forge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Sentinel Forge \u2014 FiveM Server Intelligence. Local-first diagnostic intelligence for FiveM/GTA V server environments.",
   "author": "Talal Al Ghafri",
@@ -15,6 +15,9 @@
   "workspaces": [
     "packages/shared",
     "packages/core",
+    "packages/scanner",
+    "packages/dependencies",
+    "packages/reports",
     "apps/cli"
   ],
   "scripts": {
@@ -29,10 +32,11 @@
     "test:integration": "vitest run --project integration",
     "test:security": "vitest run --project security",
     "test:performance": "vitest run --project performance",
-    "verify": "npm run check:migrations && npm run lint && npm run typecheck && npm run test && npm run build",
+    "verify": "npm run check:versions && npm run check:migrations && npm run lint && npm run typecheck && npm run test && npm run build",
     "sentinel": "node apps/cli/dist/bin/sentinel.js",
     "generate:migrations": "node scripts/generate-migrations.mjs",
-    "check:migrations": "node scripts/generate-migrations.mjs --check"
+    "check:migrations": "node scripts/generate-migrations.mjs --check",
+    "check:versions": "node scripts/check-versions.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

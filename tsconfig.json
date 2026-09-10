@@ -1,8 +1,23 @@
 {
   "files": [],
   "references": [
-    { "path": "packages/shared" },
-    { "path": "packages/core" },
-    { "path": "apps/cli" }
+    {
+      "path": "packages/shared"
+    },
+    {
+      "path": "packages/core"
+    },
+    {
+      "path": "packages/scanner"
+    },
+    {
+      "path": "packages/dependencies"
+    },
+    {
+      "path": "packages/reports"
+    },
+    {
+      "path": "apps/cli"
+    }
   ]
 }

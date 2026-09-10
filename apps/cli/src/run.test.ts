@@ -60,14 +60,14 @@ describe('CLI exit-code contract', () => {
   });
 
   it('exits 2 for a command this build does not provide, and says which gate delivers it', async () => {
-    const result = await invoke(['scan', '--server', workspace], workspace);
+    const result = await invoke(['health'], workspace);
     expect(result.exitCode).toBe(EXIT_CODES.INVALID_INPUT);
     expect(result.stderr).toContain('NOT IMPLEMENTED');
-    expect(result.stderr).toContain('GATE 1');
+    expect(result.stderr).toContain('GATE 2');
   });
 
   it('writes a parseable error object to stdout under --json', async () => {
-    const result = await invoke(['scan', '--json'], workspace);
+    const result = await invoke(['health', '--json'], workspace);
     const payload = JSON.parse(result.stdout) as { ok: boolean; error: Record<string, unknown> };
     expect(payload.ok).toBe(false);
     expect(payload.error['exitCode']).toBe(EXIT_CODES.INVALID_INPUT);
@@ -98,10 +98,14 @@ describe('CLI exit-code contract', () => {
   });
 
   it('shows command-specific help for `sentinel <command> --help`', async () => {
-    const result = await invoke(['scan', '--help'], workspace);
-    expect(result.exitCode).toBe(EXIT_CODES.SUCCESS);
-    expect(result.stdout).toContain('NOT IMPLEMENTED');
-    expect(result.stdout).toContain('sentinel scan');
+    const implemented = await invoke(['scan', '--help'], workspace);
+    expect(implemented.exitCode).toBe(EXIT_CODES.SUCCESS);
+    expect(implemented.stdout).toContain('sentinel scan');
+    expect(implemented.stdout).not.toContain('NOT IMPLEMENTED');
+
+    const planned = await invoke(['health', '--help'], workspace);
+    expect(planned.stdout).toContain('NOT IMPLEMENTED');
+    expect(planned.stdout).toContain('GATE 2');
   });
 
   it('lists the rule catalog with each rule delivery status', async () => {

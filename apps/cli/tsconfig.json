@@ -13,6 +13,15 @@
     },
     {
       "path": "../../packages/core"
+    },
+    {
+      "path": "../../packages/scanner"
+    },
+    {
+      "path": "../../packages/dependencies"
+    },
+    {
+      "path": "../../packages/reports"
     }
   ],
   "exclude": [

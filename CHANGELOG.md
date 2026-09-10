@@ -6,6 +6,61 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 © 2026 Talal Al Ghafri. All Rights Reserved.
 
+## [0.2.0] — GATE 1: Static scanner
+
+Sentinel Forge can now scan a FiveM server. Five rules run against every scan,
+each producing findings with evidence, severity and confidence.
+
+### Added
+
+- **`@sentinel-forge/scanner`**: a Lua lexer and parser for `fxmanifest.lua` and
+  `__resource.lua` that never executes the file; a typed manifest model keeping
+  every value's source position; glob resolution (`*`, `?`, `**`, `**/`);
+  `server.cfg` parsing (`ensure`/`start`/`stop`/`restart`, `set`/`sets`/`setr`,
+  `exec`); single-pass server discovery with `[category]` directory support,
+  per-file SHA-256 and a server fingerprint; and the scan pipeline.
+- **`@sentinel-forge/dependencies`**: dependency graph construction from declared
+  dependencies and discovered `@resource/file` references, `provide` resolution,
+  and iterative cycle detection with canonical ordering.
+- **`@sentinel-forge/reports`**: JSON rendering validated against the published
+  schema with canonical key order, and Markdown rendering grouped by severity
+  with evidence locations and a limitations section.
+- **Commands**: `sentinel scan`, `sentinel dependencies`, `sentinel report`.
+- **Storage**: transactional persistence of servers, scan runs, resources,
+  resource files, dependencies and findings, keyed so that re-scanning updates
+  rather than duplicates.
+- **`CFG-ENSURE-MISSING-001`**: new rule for a server configuration that starts a
+  resource which was not found.
+- **`scripts/check-versions.mjs`**: fails CI when the product version disagrees
+  between the workspace manifests and the constant embedded in reports.
+
+### Changed
+
+- `CFG-MANIFEST-001`, `CFG-MISSING-FILE-001`, `DEP-MISSING-001` and
+  `DEP-CYCLE-001` are now `IMPLEMENTED` in the rule catalog.
+- `--format html` now reports that HTML rendering is NOT IMPLEMENTED and names
+  GATE 6, rather than being listed as an available format.
+
+### Verified against official documentation
+
+Behaviour was checked against Cfx.re documentation and the official
+`cfx-server-data` repository rather than assumed. Three of those checks changed
+the implementation:
+
+- dependency entries beginning with `/` (`/server:5104`, `/onesync`,
+  `/gameBuild:h4`) are runtime constraints, not resources, and are excluded from
+  the graph;
+- `ensure`/`start`/`stop`/`restart` accept a `[category]` name, which is never a
+  missing resource;
+- `provide 'name'` satisfies another resource's dependency on `name`.
+
+### Known limitations
+
+`exec`-ed configuration files are not followed; conditional logic in a manifest
+is not evaluated; runtime constraints are listed but not checked; health,
+performance, security and integrity analysis do not exist yet. See
+`docs/GATE_STATUS.md`.
+
 ## [0.1.0] — GATE 0: Foundation
 
 First build. Establishes the repository foundation. No analysis capability yet;

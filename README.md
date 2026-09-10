@@ -37,25 +37,38 @@ by, or sponsored by Rockstar Games, Cfx.re, the FiveM project, or txAdmin.
 
 ## Current status
 
-**GATE 0 — Foundation. Complete.**
+**GATE 1 — Static scanner. Complete.**
 
-This build contains the repository foundation: shared contracts, configuration,
-structured logging with secret redaction, the error model, contained filesystem
-access, the local SQLite layer, the rule engine interfaces, the CLI skeleton,
-the report schema, test infrastructure and synthetic fixtures.
+Sentinel Forge can now scan a FiveM server: it discovers resources, parses every
+manifest without executing it, resolves the dependency graph, checks the server
+configuration, and reports findings with evidence, severity and confidence.
+Results are recorded locally and can be written as JSON or Markdown.
 
-Analysis itself begins in GATE 1. Commands that belong to a later gate are
-present in the CLI and report `NOT IMPLEMENTED` with the gate that delivers
-them — they never return an empty or invented result.
+Commands that belong to a later gate are present in the CLI and report
+`NOT IMPLEMENTED` with the gate that delivers them — they never return an empty
+or invented result.
 
 See [`docs/GATE_STATUS.md`](docs/GATE_STATUS.md) for exactly what exists today.
 
 | Available now | Delivered by a later gate |
 | --- | --- |
-| `sentinel init` | `scan`, `report`, `dependencies` (GATE 1) |
-| `sentinel doctor` | `health`, `resource` (GATE 2) |
-| `sentinel version` | `baseline`, `compare`, `incidents`, `purge` (GATE 3) |
-| `sentinel help` | `security`, `integrity` (GATE 4) |
+| `sentinel scan` | `health`, `resource` (GATE 2) |
+| `sentinel dependencies` | `baseline`, `compare`, `incidents`, `purge` (GATE 3) |
+| `sentinel report` | `security`, `integrity` (GATE 4) |
+| `sentinel init`, `doctor`, `version`, `help` | dashboard (GATE 6), MCP (GATE 7) |
+
+Five rules are implemented and run against every scan:
+
+| Rule | Detects |
+| --- | --- |
+| `CFG-MANIFEST-001` | Missing, unparsable or incomplete resource manifests. |
+| `CFG-MISSING-FILE-001` | Manifest declarations that match no file on disk. |
+| `CFG-ENSURE-MISSING-001` | `ensure`/`start` naming a resource that was not found. |
+| `DEP-MISSING-001` | Declared and discovered dependencies that do not resolve. |
+| `DEP-CYCLE-001` | Cycles in the dependency graph. |
+
+Performance, security, integrity and health analysis are not implemented yet;
+those report sections are absent rather than empty.
 
 ## Requirements
 
@@ -72,8 +85,11 @@ Sentinel Forge has **no third-party runtime dependencies**. See
 npm install
 npm run build
 
-node apps/cli/dist/bin/sentinel.js init --server "/path/to/fxserver"
-node apps/cli/dist/bin/sentinel.js doctor
+sentinel="node apps/cli/dist/bin/sentinel.js"
+
+$sentinel init --server "/path/to/fxserver"
+$sentinel doctor
+$sentinel scan
 ```
 
 `init` creates `sentinel.config.json`, the local `.sentinel/` data directory and
@@ -82,7 +98,26 @@ the SQLite database. It does not modify the FiveM server in any way.
 `doctor` verifies that this machine can run Sentinel Forge and that the
 configuration is usable, and reports exactly what it checked.
 
-Full command reference: [`docs/CLI.md`](docs/CLI.md).
+`scan` produces the diagnosis:
+
+```
+Scanned /opt/fxserver
+
+  Resources     5
+  Files         14
+  Dependencies  3
+  Unresolved    1
+  Cycles        1
+  Findings      2
+
+  HIGH     DEP-MISSING-001          Declared dependency was not found
+           confidence 0.95 (Very high) [sf_shop] resources/sf_shop/fxmanifest.lua:7
+           "sf_shop" declares a dependency on "sf_inventory", which was not found.
+           → Install or enable "sf_inventory", or remove the reference if it is obsolete.
+```
+
+Exit code `1` means findings reached the configured threshold — a result, not an
+error. Full command reference: [`docs/CLI.md`](docs/CLI.md).
 
 ## Design commitments
 
@@ -107,13 +142,13 @@ apps/dashboard        Local dashboard              (GATE 6)
 apps/mcp              Read-only MCP server         (GATE 7)
 packages/shared       Types, rule catalog, report schema
 packages/core         Config, logging, errors, filesystem, SQLite, rule engine
-packages/scanner      Server and manifest scanning (GATE 1)
-packages/dependencies Dependency graph             (GATE 1)
+packages/scanner      Server discovery, manifests, configuration analysis
+packages/dependencies Dependency graph and analysis
+packages/reports      JSON and Markdown rendering
 packages/analyzer     Lua, event, database, health (GATE 2)
 packages/performance  Baselines, regressions       (GATE 3)
 packages/security     Secrets, obfuscation         (GATE 4)
 packages/integrity    Snapshots and comparison     (GATE 4)
-packages/reports      JSON, Markdown, HTML output  (GATE 1)
 packages/runtime      Runtime telemetry ingestion  (GATE 5)
 resources/sentinel_doctor  In-server collector     (GATE 5)
 database/migrations   SQL schema, forward-only

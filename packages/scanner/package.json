@@ -1,0 +1,27 @@
+{
+  "name": "@sentinel-forge/scanner",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Server discovery, resource discovery, manifest parsing and configuration analysis.",
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --build"
+  },
+  "dependencies": {
+    "@sentinel-forge/core": "0.2.0",
+    "@sentinel-forge/shared": "0.2.0",
+    "@sentinel-forge/dependencies": "0.2.0"
+  }
+}

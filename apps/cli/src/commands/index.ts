@@ -6,21 +6,19 @@
  * NOT IMPLEMENTED, so `sentinel help` describes the real state of the build.
  */
 
+import { dependenciesCommand } from './dependencies.js';
 import { doctorCommand } from './doctor.js';
 import { helpCommand, setCommandProvider } from './help.js';
 import { initCommand } from './init.js';
 import { notImplementedCommand } from './not-implemented.js';
+import { reportCommand } from './report.js';
+import { scanCommand } from './scan.js';
 import { versionCommand } from './version.js';
 import type { CommandDefinition } from './types.js';
 
 const COMMANDS: readonly CommandDefinition[] = Object.freeze([
   initCommand,
-  notImplementedCommand({
-    name: 'scan',
-    summary: 'Scan a server and report findings.',
-    usage: 'scan --server <path> [--json] [--format <json|markdown|html>]',
-    gate: 1,
-  }),
+  scanCommand,
   notImplementedCommand({
     name: 'health',
     summary: 'Show the explainable server health score.',
@@ -33,12 +31,7 @@ const COMMANDS: readonly CommandDefinition[] = Object.freeze([
     usage: 'resource <name> [--json]',
     gate: 2,
   }),
-  notImplementedCommand({
-    name: 'dependencies',
-    summary: 'Show the resource dependency graph and unresolved dependencies.',
-    usage: 'dependencies [--json]',
-    gate: 1,
-  }),
+  dependenciesCommand,
   notImplementedCommand({
     name: 'baseline',
     summary: 'Create, list and inspect performance baselines.',
@@ -69,12 +62,7 @@ const COMMANDS: readonly CommandDefinition[] = Object.freeze([
     usage: 'integrity <snapshot|compare> [--json]',
     gate: 4,
   }),
-  notImplementedCommand({
-    name: 'report',
-    summary: 'Write a JSON, Markdown or HTML report.',
-    usage: 'report [--format <json|markdown|html>] [--output <path>]',
-    gate: 1,
-  }),
+  reportCommand,
   notImplementedCommand({
     name: 'purge',
     summary: 'Delete locally stored Sentinel Forge data.',

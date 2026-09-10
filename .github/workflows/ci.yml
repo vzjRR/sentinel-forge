@@ -60,6 +60,9 @@ jobs:
             exit 1
           fi
 
+      - name: Check version consistency
+        run: npm run check:versions
+
       - name: Check embedded migrations are current
         run: npm run check:migrations
 
