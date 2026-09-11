@@ -1,8 +1,8 @@
 {
-  "name": "@sentinel-forge/core",
+  "name": "@sentinel-forge/mcp",
   "version": "1.0.0",
   "private": true,
-  "description": "Foundation runtime: configuration, structured logging, redaction, errors, secure filesystem access, local SQLite storage, rule engine interfaces.",
+  "description": "Read-only Model Context Protocol server over Sentinel Forge's local findings.",
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "main": "./dist/index.js",
@@ -20,6 +20,12 @@
     "build": "tsc --build"
   },
   "dependencies": {
+    "@sentinel-forge/core": "1.0.0",
+    "@sentinel-forge/engine": "1.0.0",
+    "@sentinel-forge/incidents": "1.0.0",
+    "@sentinel-forge/integrity": "1.0.0",
+    "@sentinel-forge/performance": "1.0.0",
+    "@sentinel-forge/reports": "1.0.0",
     "@sentinel-forge/shared": "1.0.0"
   }
 }

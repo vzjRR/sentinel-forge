@@ -6,7 +6,7 @@ The authoritative record of what exists in this build. Anything not listed as
 delivered does not exist, however completely it may be described elsewhere in
 the documentation.
 
-**Current build: 0.7.0 — GATE 6 complete.**
+**Current build: 1.0.0 — the MVP is complete. GATES 0–7 delivered.**
 
 | Gate | Scope | Status |
 | --- | --- | --- |
@@ -17,7 +17,7 @@ the documentation.
 | 4 | Security and integrity | ✅ Complete |
 | 5 | Runtime resource | ✅ Complete |
 | 6 | Dashboard | ✅ Complete |
-| 7 | MCP interface | ⬜ Not started |
+| 7 | MCP interface | ✅ Complete |
 | 8 | Commercial hardening | ⬜ Not started |
 
 ---
@@ -770,15 +770,141 @@ and no request left the machine. Firefox and Safari are untested — see
 | Redaction enforced at the display boundary | ✅ `apps/dashboard/src/redact.ts` |
 | Every answer carrying its limitations | ✅ `limitations` in every report and page |
 
-## GATE 7 — MCP interface ⬜
+## GATE 7 — MCP interface ✅
 
-**Next gate.** A read-only MCP server exposing the ten `sentinel_*` tools. It
-must not become a way to do what the CLI refuses to do: no modification, no
-execution, no credential in a tool result. See [MCP.md](MCP.md).
+A read-only MCP server exposing the ten `sentinel_*` tools over stdio, so an
+assistant can read a diagnosis and help interpret it. Optional in the strict
+sense: the product is fully usable without it, and no analysis depends on it.
+
+### Verified before implementing
+
+The protocol is someone else's contract, so it was read rather than recalled —
+the same discipline applied to the FiveM natives in GATE 5. Every shape in
+`apps/mcp/src/protocol.ts` is cited to one of:
+
+- the transports, lifecycle and tools pages of the 2025-06-18 specification;
+- `modelcontextprotocol/modelcontextprotocol` → `schema/2025-06-18/schema.ts`.
+
+Two normative requirements shaped the implementation:
+
+1. **Messages are newline-delimited and MUST NOT contain an embedded newline.**
+   A finding's evidence excerpt is multi-line Lua, so this is the ordinary case
+   here, not an edge case. `encodeMessage` asserts it rather than assuming it.
+2. **The server MUST NOT write anything to stdout that is not a valid MCP
+   message.** Logs go to stderr, and `sentinel mcp` refuses `--json` rather than
+   writing a result to a stream the protocol reserves.
+
+### Delivered
+
+| Area | What exists | Location |
+| --- | --- | --- |
+| Protocol | JSON-RPC 2.0, the MCP message shapes, line framing, and a buffer that reassembles a message split across chunks. No SDK. | `apps/mcp/src/protocol.ts` |
+| Dispatch | `initialize` with version negotiation, `ping`, `tools/list`, `tools/call`, and silence for notifications. | `apps/mcp/src/server.ts` |
+| Transport | stdio, with messages processed strictly in order so two calls cannot start two scans or interleave replies on one pipe. | Same |
+| Tools | The ten the specification names, each with a JSON Schema that refuses unknown arguments. | `apps/mcp/src/tools.ts` |
+| Command | `sentinel mcp`, with `--server` and `--refresh`. | `apps/cli/src/commands/mcp.ts` |
+| Shared context | The scan cache and history reader, extracted from the dashboard so both applications run one implementation. | `packages/engine/src/context.ts` |
+
+### The read-only boundary
+
+Every tool declares `readOnlyHint: true`, `destructiveHint: false`,
+`idempotentHint: true`, `openWorldHint: false` — all four stated explicitly,
+because the specification's defaults are the opposite of the truth here.
+
+`tests/security/mcp-exposure.test.ts` asserts the boundary against the registry
+and against the source of `tools.ts`, not against behaviour: it fails if a tool
+is added that writes, executes, reaches the network, or persists anything. It
+also asserts that a full sweep of every tool leaves the recorded history
+unchanged — `sentinel_compare` builds incidents in order to return them, and a
+tool call is not a decision to write to an operator's history.
+
+### The defect this gate caught
+
+`redactValue` marked **shared structure** as `"[Circular]"`. A report's
+`limitations` array is reachable both at the top level of a tool payload and
+through the report object inside it; the cycle guard tracked every object it had
+ever seen rather than the path from the root, so the second reference was
+replaced by the word `[Circular]` — real data replaced by something that reads
+like a bug, in logs and reports as well as here.
+
+The guard now tracks ancestors and releases them on the way back up. A cycle is
+still a cycle; an object referenced twice is not.
+
+### Validation
+
+Run with Node.js 22.22.2 on Linux x64:
+
+| Check | Result |
+| --- | --- |
+| `npm run check:versions` | ✅ Pass — 1.0.0 across 16 packages |
+| `npm run check:migrations` | ✅ Pass — 3 migrations current |
+| `npm run lint` | ✅ Pass — 0 errors, 0 warnings |
+| `npm run typecheck` | ✅ Pass |
+| `npm run test:unit` | ✅ 609 tests |
+| `npm run test:integration` | ✅ 133 tests |
+| `npm run test:security` | ✅ 69 tests |
+| `npm run test:performance` | ✅ 16 tests |
+| Total | ✅ 827 tests, 82 files |
+
+The server was also driven over real pipes by a client written for the purpose:
+handshake, ping, tool listing, every tool called, malformed input survived, and
+a clean exit when the client closed stdin.
+
+### Known limitations of this build
+
+1. **No prompts, no resources, no sampling, no logging channel.** Each would be
+   another surface, and none is needed to read a diagnosis.
+2. **No pagination.** `tools/list` returns all ten tools at once. The two tools
+   that can return many findings bound their output and say how many were left
+   out.
+3. **Scans are cached for five minutes by default.** Every result states when
+   its scan was taken.
+4. **Only stdio.** There is no Streamable HTTP transport, which would mean
+   binding a port and defending it; the local subprocess model is what an
+   assistant on the operator's machine needs.
+5. **Tool results are large.** `sentinel_report` returns a whole report; the
+   narrower tools exist so that an assistant rarely needs it.
+6. **No client was tested other than the one written for these tests.** The
+   implementation follows the published specification, and this file will not
+   claim interoperability it has not observed.
 
 ## GATE 8 — Commercial hardening ⬜
 
-Not started, and not to be started before the MVP is validated in real use.
+**Deliberately not started.** The product specification is explicit that
+licensing, payments, cloud sync, multi-server fleets and auto-patching must not
+be built before the MVP is validated in real use, and the MVP has only just
+become complete.
+
+Nothing in this build contains a licence check, a payment path, a telemetry
+endpoint, or a call home. Adding one is a decision to be taken after operators
+have used what exists.
+
+---
+
+## The MVP
+
+The product specification defines the MVP as gates 0 through 7. All eight are
+delivered.
+
+| What an operator can do | Command |
+| --- | --- |
+| Scan a server and get evidence-backed findings | `sentinel scan` |
+| Understand a score, deduction by deduction | `sentinel health` |
+| Inspect one resource in depth | `sentinel resource <name>` |
+| See the dependency graph, unresolved edges and cycles | `sentinel dependencies` |
+| Record a moment and compare two of them | `sentinel baseline`, `sentinel compare` |
+| See what changed and what followed, without a causal claim | `sentinel incidents` |
+| Find credential, obfuscation and remote-load indicators | `sentinel security` |
+| Detect file changes between two snapshots | `sentinel integrity` |
+| Measure the running server | `sentinel_doctor`, `sentinel runtime` |
+| Read all of it in a browser | `sentinel dashboard` |
+| Hand all of it to an assistant, read-only | `sentinel mcp` |
+| Write a report in JSON, Markdown or HTML | `sentinel report` |
+| Delete everything stored locally | `sentinel purge` |
+
+What it still does not do, by design: modify a server, execute anything it
+scans, reach the network, collect telemetry, or report a number it did not
+measure.
 
 ---
 

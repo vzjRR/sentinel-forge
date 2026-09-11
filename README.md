@@ -37,7 +37,7 @@ by, or sponsored by Rockstar Games, Cfx.re, the FiveM project, or txAdmin.
 
 ## Current status
 
-**GATE 6 — Dashboard. Complete.**
+**Version 1.0.0 — the MVP is complete.** Gates 0 through 7, delivered.
 
 Sentinel Forge scans a FiveM server, diagnoses it, and tracks it over time. It
 parses manifests and scripts without executing them, resolves the dependency
@@ -55,18 +55,21 @@ engine that has been waiting for them.
 `sentinel dashboard` serves all of it as a local web interface, bound to
 `127.0.0.1` and read-only.
 
-Commands that belong to a later gate are present in the CLI and report
-`NOT IMPLEMENTED` with the gate that delivers them — they never return an empty
-or invented result.
+Every command in the specification is implemented. A capability that does not
+exist says so and exits with a documented code; nothing returns an empty or
+invented result in place of one.
 
 See [`docs/GATE_STATUS.md`](docs/GATE_STATUS.md) for exactly what exists today.
 
 Every command in the product specification is implemented:
 `scan`, `health`, `resource`, `dependencies`, `baseline`, `compare`,
-`incidents`, `security`, `integrity`, `runtime`, `dashboard`, `report`,
+`incidents`, `security`, `integrity`, `runtime`, `dashboard`, `mcp`, `report`,
 `purge`, `init`, `doctor`, `version`, `help`.
 
-Still to come: the read-only MCP interface (GATE 7).
+What is deliberately not built: licensing, payments, cloud sync, fleet
+management and auto-patching. The product specification puts those after the MVP
+has been validated in real use, and this build contains no licence check, no
+payment path, no telemetry endpoint and no call home.
 
 Sixteen rules are implemented and run against every scan:
 
@@ -184,6 +187,20 @@ sentinel report --format html --output report.html
 The HTML report is one self-contained file: stylesheet embedded, no script, no
 font, no image. It renders identically on a machine with no network access.
 
+### Handing it to an assistant
+
+```bash
+sentinel mcp --server /opt/fxserver
+```
+
+An optional read-only MCP server, so an assistant can read a diagnosis and help
+explain it. Ten tools, none of which can modify the server, execute anything,
+change configuration, or reach the network — and every result carries the
+limitations that apply to it, so an observation is not presented as a proof.
+
+Sentinel Forge is fully usable without it. **The product works with no AI
+assistant present**, and no analysis depends on one.
+
 ## Requirements
 
 - Node.js **22.5 or newer** (for the bundled `node:sqlite` module)
@@ -254,7 +271,7 @@ These hold for every gate, not just this one.
 ```
 apps/cli              Command line interface
 apps/dashboard        Local dashboard
-apps/mcp              Read-only MCP server         (GATE 7)
+apps/mcp              Read-only MCP server
 packages/shared       Types, rule catalog, report schema
 packages/core         Config, logging, errors, filesystem, SQLite, rule engine
 packages/scanner      Server discovery, manifests, configuration analysis

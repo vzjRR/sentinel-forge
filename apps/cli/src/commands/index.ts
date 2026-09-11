@@ -19,6 +19,7 @@ import { doctorCommand } from './doctor.js';
 import { healthCommand } from './health.js';
 import { incidentsCommand } from './incidents.js';
 import { integrityCommand } from './integrity.js';
+import { mcpCommand } from './mcp.js';
 import { helpCommand, setCommandProvider } from './help.js';
 import { initCommand } from './init.js';
 import { purgeCommand } from './purge.js';
@@ -43,6 +44,7 @@ const COMMANDS: readonly CommandDefinition[] = Object.freeze([
   integrityCommand,
   runtimeCommand,
   dashboardCommand,
+  mcpCommand,
   reportCommand,
   purgeCommand,
   doctorCommand,

@@ -144,29 +144,45 @@ export function maskSecret(value: string, visiblePrefix = 4): string {
  * Deep-redacts a structure destined for a log record or a JSON report.
  * Strings are redacted, keys with sensitive names are masked wholesale, and
  * cycles are replaced with `"[Circular]"` rather than throwing.
+ *
+ * A **cycle** is an object that contains itself, directly or through its
+ * descendants. An object referenced twice from different places is not a cycle
+ * and is redacted twice — which is why the guard below tracks the path from the
+ * root rather than every object ever visited. A report whose `limitations`
+ * array is also reachable through its `report` object is the ordinary case, and
+ * marking the second reference `"[Circular]"` would replace real data with a
+ * word that reads like a bug.
  */
 export function redactValue<T>(value: T): T {
-  return redactUnknown(value, new WeakSet()) as T;
+  return redactUnknown(value, new Set()) as T;
 }
 
 const SENSITIVE_KEY_RE = new RegExp(`^${KEY_PREFIX}${SENSITIVE_KEY_PATTERN}$`, 'i');
 
-function redactUnknown(value: unknown, seen: WeakSet<object>): unknown {
+function redactUnknown(value: unknown, ancestors: Set<object>): unknown {
   if (typeof value === 'string') return redactText(value);
   if (value === null || typeof value !== 'object') return value;
 
-  if (seen.has(value)) return '[Circular]';
-  seen.add(value);
-
-  if (Array.isArray(value)) {
-    return value.map((entry) => redactUnknown(entry, seen));
-  }
-
+  // Only an ancestor makes this a cycle. A sibling, or the same object reached
+  // twice by different paths, is ordinary shared structure.
+  if (ancestors.has(value)) return '[Circular]';
   if (value instanceof Date) return value;
 
-  const output: Record<string, unknown> = {};
-  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-    output[key] = SENSITIVE_KEY_RE.test(key) && typeof entry === 'string' ? REDACTION_MASK : redactUnknown(entry, seen);
+  ancestors.add(value);
+  try {
+    if (Array.isArray(value)) {
+      return value.map((entry) => redactUnknown(entry, ancestors));
+    }
+
+    const output: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+      output[key] =
+        SENSITIVE_KEY_RE.test(key) && typeof entry === 'string' ? REDACTION_MASK : redactUnknown(entry, ancestors);
+    }
+    return output;
+  } finally {
+    // Removed on the way back up, so the next branch can visit the same object
+    // without seeing a phantom cycle.
+    ancestors.delete(value);
   }
-  return output;
 }

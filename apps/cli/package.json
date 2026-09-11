@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-forge/cli",
-  "version": "0.7.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Sentinel Forge command line interface.",
   "license": "SEE LICENSE IN LICENSE",
@@ -17,16 +17,17 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "@sentinel-forge/core": "0.7.0",
-    "@sentinel-forge/dashboard": "0.7.0",
-    "@sentinel-forge/dependencies": "0.7.0",
-    "@sentinel-forge/engine": "0.7.0",
-    "@sentinel-forge/incidents": "0.7.0",
-    "@sentinel-forge/integrity": "0.7.0",
-    "@sentinel-forge/performance": "0.7.0",
-    "@sentinel-forge/reports": "0.7.0",
-    "@sentinel-forge/runtime": "0.7.0",
-    "@sentinel-forge/scanner": "0.7.0",
-    "@sentinel-forge/shared": "0.7.0"
+    "@sentinel-forge/core": "1.0.0",
+    "@sentinel-forge/dashboard": "1.0.0",
+    "@sentinel-forge/dependencies": "1.0.0",
+    "@sentinel-forge/engine": "1.0.0",
+    "@sentinel-forge/incidents": "1.0.0",
+    "@sentinel-forge/integrity": "1.0.0",
+    "@sentinel-forge/mcp": "1.0.0",
+    "@sentinel-forge/performance": "1.0.0",
+    "@sentinel-forge/reports": "1.0.0",
+    "@sentinel-forge/runtime": "1.0.0",
+    "@sentinel-forge/scanner": "1.0.0",
+    "@sentinel-forge/shared": "1.0.0"
   }
 }

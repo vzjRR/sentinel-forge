@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist"
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "**/*.test.ts"
+  ],
+  "references": [
+    { "path": "../../packages/shared" },
+    { "path": "../../packages/core" },
+    { "path": "../../packages/performance" },
+    { "path": "../../packages/incidents" },
+    { "path": "../../packages/integrity" },
+    { "path": "../../packages/engine" },
+    { "path": "../../packages/reports" }
+  ]
+}

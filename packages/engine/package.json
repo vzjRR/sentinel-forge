@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-forge/engine",
-  "version": "0.7.0",
+  "version": "1.0.0",
   "private": true,
   "description": "The diagnostic pipeline: composes discovery, analysis, scoring and storage into one scan.",
   "license": "SEE LICENSE IN LICENSE",
@@ -20,15 +20,15 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "@sentinel-forge/analyzer": "0.7.0",
-    "@sentinel-forge/core": "0.7.0",
-    "@sentinel-forge/dependencies": "0.7.0",
-    "@sentinel-forge/incidents": "0.7.0",
-    "@sentinel-forge/integrity": "0.7.0",
-    "@sentinel-forge/performance": "0.7.0",
-    "@sentinel-forge/runtime": "0.7.0",
-    "@sentinel-forge/scanner": "0.7.0",
-    "@sentinel-forge/security": "0.7.0",
-    "@sentinel-forge/shared": "0.7.0"
+    "@sentinel-forge/analyzer": "1.0.0",
+    "@sentinel-forge/core": "1.0.0",
+    "@sentinel-forge/dependencies": "1.0.0",
+    "@sentinel-forge/incidents": "1.0.0",
+    "@sentinel-forge/integrity": "1.0.0",
+    "@sentinel-forge/performance": "1.0.0",
+    "@sentinel-forge/runtime": "1.0.0",
+    "@sentinel-forge/scanner": "1.0.0",
+    "@sentinel-forge/security": "1.0.0",
+    "@sentinel-forge/shared": "1.0.0"
   }
 }

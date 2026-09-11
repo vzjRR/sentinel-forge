@@ -40,6 +40,9 @@
     },
     {
       "path": "../dashboard"
+    },
+    {
+      "path": "../mcp"
     }
   ],
   "exclude": [

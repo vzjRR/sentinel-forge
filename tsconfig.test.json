@@ -56,6 +56,9 @@
       "@sentinel-forge/dashboard": [
         "apps/dashboard/src/index.ts"
       ],
+      "@sentinel-forge/mcp": [
+        "apps/mcp/src/index.ts"
+      ],
       "@sentinel-forge/cli": [
         "apps/cli/src/index.ts"
       ]

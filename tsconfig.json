@@ -44,6 +44,9 @@
       "path": "apps/dashboard"
     },
     {
+      "path": "apps/mcp"
+    },
+    {
       "path": "apps/cli"
     }
   ]

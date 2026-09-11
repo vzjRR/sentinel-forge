@@ -6,6 +6,62 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 © 2026 Talal Al Ghafri. All Rights Reserved.
 
+## [1.0.0] — GATE 7: MCP interface, and the MVP
+
+The MVP defined by the product specification — gates 0 through 7 — is complete.
+
+### Added
+
+- **`sentinel mcp`**: a read-only Model Context Protocol server over stdio,
+  exposing the ten `sentinel_*` tools the specification names. An MCP client
+  launches it as a subprocess; it runs until the client closes its input.
+- **`@sentinel-forge/mcp`**: JSON-RPC 2.0 and the MCP message shapes,
+  implemented directly against the published specification with no SDK. Every
+  shape is cited in the source to the 2025-06-18 specification pages or to
+  `schema/2025-06-18/schema.ts`.
+- **`packages/engine/src/context.ts`**: the scan cache and recorded-history
+  reader, extracted from the dashboard so both applications run one
+  implementation rather than two.
+- **`tests/integration/mcp.test.ts`**: the server spoken to over real pipes by a
+  client written for the purpose — handshake, ping, every tool called, a
+  malformed message survived, stdout carrying nothing but protocol messages, and
+  a clean exit when stdin closes.
+- **`tests/security/mcp-exposure.test.ts`**: no credential in any tool result;
+  no tool that writes, executes or reaches the network, asserted against the
+  registry and the source rather than against behaviour; and a full sweep of
+  every tool leaving the recorded history unchanged.
+
+### Fixed
+
+- **`redactValue` marked shared structure as `"[Circular]"`.** Its cycle guard
+  tracked every object it had ever seen rather than the path from the root, so
+  an object referenced twice from different places — a report's `limitations`
+  array, reachable both at the top level of a payload and through the report
+  inside it — had its second reference replaced by the word `[Circular]`. Real
+  data replaced by something that reads like a bug, in logs and reports as well
+  as in tool results. The guard now tracks ancestors and releases them on the
+  way back up.
+
+### Known limitations
+
+- **stdio only.** There is no Streamable HTTP transport; the local subprocess
+  model is what an assistant on the operator's machine needs, and a port would
+  have to be defended.
+- **No prompts, resources, sampling or logging channel.** Each would be another
+  surface and none is needed to read a diagnosis.
+- **No pagination.** The two tools that can return many findings bound their
+  output and say how many were left out.
+- **No client was tested other than the one written for these tests.** The
+  implementation follows the published specification; interoperability beyond
+  that has not been observed and is not claimed.
+
+### Not built, deliberately
+
+Licensing, payments, cloud sync, fleet management and auto-patching are GATE 8,
+and the specification is explicit that they must not be built before the MVP is
+validated in real use. This build contains no licence check, no payment path, no
+telemetry endpoint and no call home.
+
 ## [0.7.0] — GATE 6: Dashboard
 
 The product has an interface. It renders what the earlier gates produce, adds no

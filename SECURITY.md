@@ -104,6 +104,19 @@ it shows, which is why it is loopback-only by default.
 server, over a real socket, with fabricated credentials and a resource whose
 name and manifest description are script payloads.
 
+### The MCP interface's posture
+
+Its consumer is a language model, so whatever it returns may be copied into a
+conversation, a transcript, and a model provider's logs.
+
+| Control | Enforced in |
+| --- | --- |
+| Every tool read-only, non-destructive, closed-world — all stated explicitly, because the specification's defaults are the opposite | `apps/mcp/src/tools.ts` |
+| No tool that writes, executes, reaches the network, or persists anything | Asserted against the registry and the source by `tests/security/mcp-exposure.test.ts` |
+| Results redacted again on the way out | `apps/mcp/src/tools.ts` |
+| stdout reserved for protocol messages; `--json` refused | `apps/cli/src/commands/mcp.ts` |
+| Reading never records: `sentinel_compare` returns incidents without persisting them | `apps/mcp/src/tools.ts`, asserted by the security suite |
+
 ## 5. Handling of secrets
 
 When a credential-shaped value is detected, Sentinel Forge records **where** it

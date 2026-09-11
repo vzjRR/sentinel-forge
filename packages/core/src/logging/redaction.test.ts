@@ -114,4 +114,30 @@ describe('redaction', () => {
     expect(() => redactValue(cyclic)).not.toThrow();
     expect(JSON.stringify(redactValue(cyclic))).toContain('[Circular]');
   });
+
+  it('detects a cycle through a descendant, not only a direct self-reference', () => {
+    const root: Record<string, unknown> = { name: 'sf_core' };
+    const child: Record<string, unknown> = { parent: root };
+    root['child'] = child;
+    expect(JSON.stringify(redactValue(root))).toContain('[Circular]');
+  });
+
+  it('keeps an object that is merely referenced twice', () => {
+    // A report's `limitations` array is reachable both at the top level and
+    // through the report object. That is shared structure, not a cycle, and
+    // calling it "[Circular]" would replace real data with a word that reads
+    // like a bug — which is exactly what it did before this test existed.
+    const shared = ['Findings are observations, not proofs.'];
+    const redacted = redactValue({ limitations: shared, report: { limitations: shared } });
+
+    expect(redacted.limitations).toEqual(shared);
+    expect(redacted.report.limitations).toEqual(shared);
+    expect(JSON.stringify(redacted)).not.toContain('[Circular]');
+  });
+
+  it('keeps the same object appearing twice in one array', () => {
+    const entry = { file: 'resources/sf_core/main.lua' };
+    const redacted = redactValue({ evidence: [entry, entry] });
+    expect(redacted.evidence).toEqual([entry, entry]);
+  });
 });

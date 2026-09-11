@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-forge/security",
-  "version": "0.7.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Secret, obfuscation, remote-load and suspicious-file indicators.",
   "license": "SEE LICENSE IN LICENSE",
@@ -20,8 +20,8 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "@sentinel-forge/core": "0.7.0",
-    "@sentinel-forge/lua": "0.7.0",
-    "@sentinel-forge/shared": "0.7.0"
+    "@sentinel-forge/core": "1.0.0",
+    "@sentinel-forge/lua": "1.0.0",
+    "@sentinel-forge/shared": "1.0.0"
   }
 }

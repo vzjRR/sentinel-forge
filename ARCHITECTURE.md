@@ -46,13 +46,14 @@ of *what changes together*, not by technical layer.
 | `@sentinel-forge/reports` | JSON, Markdown and HTML rendering, plus the HTML primitives the dashboard shares. | 1 ✅ |
 | `@sentinel-forge/lua` | Lua lexing and block structure, shared by manifest parsing and script analysis. | 2 ✅ |
 | `@sentinel-forge/analyzer` | Lua, event and database analysis; health scoring. | 2 ✅ |
-| `@sentinel-forge/engine` | The scan pipeline: composes discovery, analysis, scoring and storage. | 2 ✅ |
+| `@sentinel-forge/engine` | The scan pipeline, and the cached analysis context both applications read through. | 2 ✅ |
 | `@sentinel-forge/performance` | Baselines, sample statistics, comparison, regression detection. | 3 ✅ |
 | `@sentinel-forge/incidents` | Change correlation and incident timelines. | 3 ✅ |
 | `@sentinel-forge/security` | Secret, obfuscation, execution and suspicious-file indicators. | 4 ✅ |
 | `@sentinel-forge/integrity` | Integrity snapshots and comparison. | 4 ✅ |
 | `@sentinel-forge/runtime` | Locating the in-server collector, reading its telemetry and importing it idempotently. | 5 ✅ |
 | `@sentinel-forge/dashboard` | The local, read-only web interface and its JSON API. | 6 ✅ |
+| `@sentinel-forge/mcp` | The read-only Model Context Protocol server and its ten tools. | 7 ✅ |
 
 Dependencies flow one way: `shared` and `lua` ← `core` ← the analysis packages
 ← `engine` ← the applications. `shared` has no
@@ -398,11 +399,43 @@ raw values from the scanned server reach a page, and it is where credentials
 live. Values are withheld by key name *and* by the product's own credential
 detector, on the page and in the JSON API alike.
 
-## 14. What is deliberately not here
+## 14. The MCP interface
+
+`sentinel mcp` serves ten read-only tools over stdio, so an assistant can read a
+diagnosis and help explain it.
+
+**The protocol is implemented directly.** No SDK: the product takes no
+third-party runtime dependency, and one whose pitch is that it does not run
+other people's code should not add a supply chain to read its own findings.
+Every shape is cited in `apps/mcp/src/protocol.ts` to the published
+specification, the same discipline applied to the FiveM natives.
+
+**The boundary is a property of the registry, not of the handlers.** Every tool
+declares `readOnlyHint: true` and `destructiveHint: false`, and the security
+suite asserts it against what is registered and against the source of
+`tools.ts`. A tool that wrote, executed or reached the network would fail the
+build, not a review.
+
+**Every result carries its limitations.** The consumer is a language model. One
+that receives a finding without the sentence saying what it does not establish
+will present it as proven, so the limitations travel in the payload rather than
+in documentation about the payload. The `instructions` sent at initialization
+say the same three things again, because that is where a client is most likely
+to read them.
+
+**Reading is not recording.** `sentinel_compare` builds incidents in order to
+return them and does not persist them. A tool call is not a decision to write to
+an operator's history.
+
+## 15. What is deliberately not here
 
 - **No plugin system.** Rules are compiled in. A diagnostic tool that loads
   third-party code inherits its security properties.
 - **No ORM.** The queries are simple and the schema is the contract.
 - **No dependency injection container.** Dependencies are passed as arguments.
-- **No AI in the analysis path.** AI may explain a finding later; it never
-  produces one. Deterministic diagnostics are the product.
+- **No AI in the analysis path.** AI may explain a finding through the MCP
+  interface; it never produces one. Deterministic diagnostics are the product,
+  and the product works with no assistant present.
+- **No licence check, payment path, telemetry endpoint or call home.** Those are
+  GATE 8, and the specification puts them after the MVP has been validated in
+  real use.

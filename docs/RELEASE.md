@@ -44,6 +44,7 @@ Everything here is verified before a release is tagged.
 
 **Build and tests**
 
+- [ ] `npm run check:versions` passes
 - [ ] `npm run check:migrations` passes
 - [ ] `npm run lint` passes
 - [ ] `npm run typecheck` passes
@@ -84,8 +85,8 @@ Everything here is verified before a release is tagged.
 
 ## Release contents
 
-A release contains the CLI, the dashboard, the `sentinel_doctor` resource,
-documentation, `LICENSE`,
+A release contains the CLI, the dashboard, the MCP server, the
+`sentinel_doctor` resource, documentation, `LICENSE`,
 `THIRD_PARTY_LICENSES.md`, compatibility information and the changelog.
 
 It never contains secrets, production data, developer credentials, test

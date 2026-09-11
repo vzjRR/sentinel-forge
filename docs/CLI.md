@@ -29,6 +29,7 @@ says so explicitly and names the gate that delivers it.
 | `sentinel integrity <snapshot\|list\|compare\|delete>` | File integrity snapshots and comparison. |
 | `sentinel runtime <status\|import\|events>` | Import and inspect telemetry measured by the in-server collector. |
 | `sentinel dashboard` | Serve the local, read-only dashboard. Runs until interrupted. |
+| `sentinel mcp` | Serve the read-only MCP interface on stdio. Runs until the client disconnects. |
 | `sentinel purge [retention\|all]` | Delete locally stored data. Dry run unless `--confirm`. |
 | `sentinel doctor` | Check that this environment can run Sentinel Forge. |
 | `sentinel version` | Print product, report schema and database schema versions. |
@@ -198,9 +199,10 @@ stdout instead of the summary, so a pipeline does not need a second scan.
 | `PERF-EVENT-001` | A network event triggered from a per-frame loop. |
 | `PERF-QUERY-001` | A query executed per loop iteration; a SELECT with no WHERE or LIMIT; `SELECT *` (INFO). |
 
-Security and integrity analysis are NOT IMPLEMENTED in this build; those report
-sections are absent rather than empty, and the matching health categories are
-reported as unavailable rather than scored.
+Security indicators are reported by `sentinel scan` and by `sentinel security`.
+Integrity is not part of a single scan: it is a comparison between two
+snapshots, so its report section is absent rather than empty and the matching
+health category is reported as unavailable rather than scored.
 
 ## Health
 
@@ -438,6 +440,42 @@ drop. A gap in the data is shown as a gap, never as a quiet period.
 The collector records a player **count** and nothing else about players. No
 identifier, name, endpoint, position or action is read or stored, by the
 collector or by anything downstream of it.
+
+## MCP interface
+
+```bash
+sentinel mcp --server /opt/fxserver
+```
+
+Speaks the Model Context Protocol over stdio, so an MCP client can launch this
+command as a subprocess and read a diagnosis from it. It runs until the client
+closes its input.
+
+```jsonc
+{
+  "mcpServers": {
+    "sentinel-forge": {
+      "command": "sentinel",
+      "args": ["mcp", "--server", "/opt/fxserver"]
+    }
+  }
+}
+```
+
+Ten tools, all read-only: `sentinel_scan`, `sentinel_health`,
+`sentinel_resource`, `sentinel_dependencies`, `sentinel_performance`,
+`sentinel_compare`, `sentinel_security`, `sentinel_integrity`,
+`sentinel_incidents`, `sentinel_report`.
+
+Nothing here can modify the FiveM server, execute anything, change
+configuration, or reach the network. Every result carries a `limitations` array,
+so an assistant explaining a finding has what it needs to avoid presenting an
+observation as a proof.
+
+`--json` is refused: the stdio transport reserves stdout for protocol messages,
+and a result written there would corrupt the session. Logs go to stderr.
+
+Full contract: [MCP.md](MCP.md).
 
 ## Purge
 

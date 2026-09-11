@@ -288,6 +288,8 @@ Rules that apply to every endpoint:
 
 `404` bodies are JSON for `/api` paths and an HTML page otherwise.
 
-## MCP interface (GATE 7)
+## MCP interface
 
-See [MCP.md](MCP.md). Read-only.
+Served by `sentinel mcp` over stdio. Ten read-only tools returning the same
+types as the report schema above, each carrying the limitations that apply to
+it. Full contract: [MCP.md](MCP.md).
