@@ -22,19 +22,24 @@ function readJson(relativePath) {
 const rootVersion = readJson('package.json').version;
 const problems = [];
 
-const workspaceManifests = [
-  ...readdirSync(path.join(repositoryRoot, 'packages'))
-    .map((name) => `packages/${name}/package.json`)
+/** Every directory under `packages/` and `apps/` that is a real workspace. */
+function workspacesIn(directory) {
+  return readdirSync(path.join(repositoryRoot, directory))
+    .map((name) => `${directory}/${name}/package.json`)
     .filter((relative) => {
       try {
         readJson(relative);
         return true;
       } catch {
+        // A placeholder directory with no manifest is not a workspace. It is
+        // skipped rather than failing the check, which is how a gate's
+        // not-yet-built package is allowed to exist as a directory.
         return false;
       }
-    }),
-  'apps/cli/package.json',
-];
+    });
+}
+
+const workspaceManifests = [...workspacesIn('packages'), ...workspacesIn('apps')];
 
 for (const relative of workspaceManifests) {
   const manifest = readJson(relative);

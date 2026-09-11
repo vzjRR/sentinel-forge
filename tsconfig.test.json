@@ -53,6 +53,9 @@
       "@sentinel-forge/reports": [
         "packages/reports/src/index.ts"
       ],
+      "@sentinel-forge/dashboard": [
+        "apps/dashboard/src/index.ts"
+      ],
       "@sentinel-forge/cli": [
         "apps/cli/src/index.ts"
       ]

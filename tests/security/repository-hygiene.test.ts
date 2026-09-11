@@ -160,14 +160,50 @@ describe('repository hygiene', () => {
 
   it('makes no outbound network requests', async () => {
     const files = await collectSourceFiles();
-    const networkApis = [/\bfetch\s*\(/, /node:https?['"]/, /\bnew\s+WebSocket\b/, /node:dgram/, /node:net['"]/];
+
+    // Outbound calls, forbidden everywhere without exception. Listening on a
+    // socket and calling out of the machine are different things, and only the
+    // second one can leak an operator's data; the dashboard does the first.
+    const outbound = [
+      /\bfetch\s*\(/,
+      /\bhttps?\.request\s*\(/,
+      /\bhttps?\.get\s*\(/,
+      /\brequest\s*\(\s*(?:'|"|`)https?:/,
+      /\bnew\s+WebSocket\b/,
+      /\bnet\.connect\s*\(/,
+      /\bcreateConnection\s*\(/,
+      /node:dgram/,
+      /\bdns\.(?:lookup|resolve)/,
+    ];
 
     for (const file of files) {
       if (!file.relativePath.endsWith('.ts')) continue;
-      for (const pattern of networkApis) {
+      for (const pattern of outbound) {
         expect(pattern.test(file.content), `${file.relativePath} matches ${String(pattern)}`).toBe(false);
       }
     }
+  });
+
+  it('imports a networking module in exactly one place, and only to listen', async () => {
+    // The dashboard binds a local socket. That is the product's only contact
+    // with the network stack, so it is named here: a second file importing a
+    // networking module is a change that has to be argued for, not slipped in.
+    const files = await collectSourceFiles();
+    const allowed = new Set(['apps/dashboard/src/server.ts']);
+    const networkImport = /from '(?:node:(?:http|https|net|tls|dgram|dns)|undici)'/;
+
+    const importers = files
+      .filter((file) => file.relativePath.endsWith('.ts') && !file.relativePath.includes('.test.'))
+      .filter((file) => networkImport.test(file.content))
+      .map((file) => file.relativePath);
+
+    expect(importers.filter((relativePath) => !allowed.has(relativePath))).toEqual([]);
+
+    const server = files.find((file) => file.relativePath === 'apps/dashboard/src/server.ts');
+    expect(server, 'the dashboard server must exist for this assertion to mean anything').toBeDefined();
+    // It listens; it does not call out.
+    expect(server?.content).toContain('createServer');
+    expect(server?.content).not.toMatch(/\brequest\s*\(\s*\{?\s*(?:host|hostname|protocol):/);
   });
 
   it('ships safe defaults: local-only, read-only, nothing enabled that phones home', () => {

@@ -247,25 +247,46 @@ Each entry carries `id`, `category`, `defaultSeverity`, `title`, `rationale`,
 `falsePositives`, `status` and `targetGate`. `status` states honestly whether the
 rule executes in the current build.
 
-## Local HTTP API (GATE 6)
+## Local HTTP API
 
-**NOT IMPLEMENTED.** Planned surface, listed so integrators can see the intended
-shape:
+Served by `sentinel dashboard`, bound to `127.0.0.1`, read-only.
 
 ```
 GET /api/health
+GET /api/server
 GET /api/resources
 GET /api/resources/:name
-GET /api/findings
-GET /api/incidents
-GET /api/performance
 GET /api/dependencies
+GET /api/performance
 GET /api/security
 GET /api/integrity
+GET /api/incidents
 GET /api/reports
+GET /api/settings
 ```
 
-Read-only, bound to `127.0.0.1`, serving the same types as the report schema.
+Every endpoint serves the same types as the report schema, so a consumer reading
+`/api/resources` and a consumer reading a JSON report are reading the same
+shapes.
+
+Rules that apply to every endpoint:
+
+1. **GET and HEAD only.** Anything else is refused with `405` before routing.
+   There is no state to change: the dashboard cannot modify the FiveM server,
+   run a command against it, or alter configuration.
+2. **No authentication, and therefore loopback only.** Binding elsewhere
+   requires `--allow-non-loopback` and is refused otherwise. The `Host` header
+   is checked on every request, so a page on another origin cannot point a DNS
+   name at `127.0.0.1` and read these endpoints.
+3. **No CORS header is sent.** No other origin can read a response.
+4. **Configuration values are withheld.** `/api/server` returns the parsed
+   configuration with every sensitive value replaced by `(redacted)` — by key
+   name and by the credential detector. A JSON endpoint is the easier of the two
+   surfaces to scrape, and it is held to the same rule as the page.
+5. **An absent section is `null`, not an empty object.** As in a report, "not
+   collected" and "nothing found" are different answers.
+
+`404` bodies are JSON for `/api` paths and an HTML page otherwise.
 
 ## MCP interface (GATE 7)
 

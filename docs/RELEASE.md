@@ -84,8 +84,8 @@ Everything here is verified before a release is tagged.
 
 ## Release contents
 
-A release contains the CLI, the `sentinel_doctor` resource, the dashboard (from
-GATE 6), documentation, `LICENSE`,
+A release contains the CLI, the dashboard, the `sentinel_doctor` resource,
+documentation, `LICENSE`,
 `THIRD_PARTY_LICENSES.md`, compatibility information and the changelog.
 
 It never contains secrets, production data, developer credentials, test

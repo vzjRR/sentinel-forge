@@ -212,8 +212,14 @@ export const SCORED_CATEGORIES: readonly HealthCategory[] = Object.freeze([
 ]);
 
 export const UNSCORED_CATEGORY_REASONS: Readonly<Partial<Record<HealthCategory, string>>> = Object.freeze({
-  SECURITY: 'Security analysis is NOT IMPLEMENTED in this build (GATE 4).',
-  INTEGRITY: 'Integrity tracking is NOT IMPLEMENTED in this build (GATE 4).',
+  // Security is scored when a command asks for it; this reason stands only for
+  // the commands that do not.
+  SECURITY: 'Security analysis was not run for this command.',
+  // Integrity is a comparison between two moments, so a single scan has nothing
+  // to score. It is not missing — it is not a property of one point in time.
+  INTEGRITY:
+    'Integrity is not scored from a single scan: it is a comparison between two snapshots. ' +
+    'Use `sentinel integrity snapshot` and `sentinel integrity compare`.',
   // The collector reports resource state transitions, not errors: FiveM
   // exposes no scripting API through which one resource can observe another's
   // runtime errors. Scoring reliability from state transitions alone would be

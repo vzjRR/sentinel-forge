@@ -1,8 +1,8 @@
 {
-  "name": "@sentinel-forge/engine",
+  "name": "@sentinel-forge/dashboard",
   "version": "0.7.0",
   "private": true,
-  "description": "The diagnostic pipeline: composes discovery, analysis, scoring and storage into one scan.",
+  "description": "Local-first, read-only dashboard over the data Sentinel Forge collects.",
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "main": "./dist/index.js",
@@ -20,12 +20,13 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "@sentinel-forge/analyzer": "0.7.0",
     "@sentinel-forge/core": "0.7.0",
     "@sentinel-forge/dependencies": "0.7.0",
+    "@sentinel-forge/engine": "0.7.0",
     "@sentinel-forge/incidents": "0.7.0",
     "@sentinel-forge/integrity": "0.7.0",
     "@sentinel-forge/performance": "0.7.0",
+    "@sentinel-forge/reports": "0.7.0",
     "@sentinel-forge/runtime": "0.7.0",
     "@sentinel-forge/scanner": "0.7.0",
     "@sentinel-forge/security": "0.7.0",

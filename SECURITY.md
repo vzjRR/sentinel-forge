@@ -59,6 +59,10 @@ Threats considered:
 | A resource contains hostile file names (`-rf`, NUL bytes, control characters). | Paths are handled as data, never interpolated into a shell — there is no shell execution anywhere in the product. |
 | A scanned file contains a live credential. | Redaction before persistence and rendering; findings report a location, not a value. |
 | A malicious resource tries to get its code run by the scanner. | Nothing scanned is ever executed or imported. |
+| A resource name or a Lua excerpt is markup, aimed at the operator's browser through the dashboard or an HTML report. | Every value passes through one escaping module before it becomes markup; no page emits script, and the content security policy is `default-src 'none'`. |
+| A page on another origin points a DNS name at `127.0.0.1` to read the dashboard from the operator's browser. | The `Host` header is checked on every request before routing; an unexpected name is refused with `421`. |
+| A request tries to make the dashboard read a file (`/../../etc/passwd`). | There is no static directory and no route that maps a URL onto a filesystem path. Traversal sequences are refused rather than normalised. |
+| A page or endpoint prints a credential out of `server.cfg`. | Configuration values are withheld by key name *and* by the credential detector, on the page and in the JSON API alike. |
 
 Out of scope: an operator who deliberately runs Sentinel Forge as a privileged
 user against a hostile filesystem they do not control, and any threat that
@@ -75,8 +79,30 @@ requires an attacker to already have code execution on the operator's machine.
 
 - The local database lives in the working directory, not a shared location.
 - No automatic fixes, no automatic downloads, no automatic server modification.
-- The dashboard (GATE 6) will bind to `127.0.0.1` and will not be exposed by
-  default.
+- The dashboard binds `127.0.0.1`. Binding an address reachable from the
+  network requires `--allow-non-loopback`; without it the command exits `4`.
+- The in-server collector is opt-in: it is a resource the operator installs
+  themselves, it writes only inside its own directory, and it makes no network
+  request.
+
+### The dashboard's posture
+
+It has **no authentication**. Anyone who can reach the port can read everything
+it shows, which is why it is loopback-only by default.
+
+| Control | Enforced in |
+| --- | --- |
+| Loopback by default; other addresses refused without an explicit opt-in | `apps/dashboard/src/server.ts` |
+| `GET` and `HEAD` only — `405` before routing | Same |
+| `Host` header checked — `421` on an unexpected name | Same |
+| `Content-Security-Policy: default-src 'none'`, `nosniff`, `DENY`, `no-referrer`, `no-store`, and no CORS header | Same |
+| Fixed route table; no file served from disk | `apps/dashboard/src/routes.ts` |
+| Configuration values withheld by key name and by detector | `apps/dashboard/src/redact.ts` |
+| No script emitted on any page | `apps/dashboard/src/views/layout.ts` |
+
+`tests/security/dashboard-exposure.test.ts` asserts all of it against a real
+server, over a real socket, with fabricated credentials and a resource whose
+name and manifest description are script payloads.
 
 ## 5. Handling of secrets
 

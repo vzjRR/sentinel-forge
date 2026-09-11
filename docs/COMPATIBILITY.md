@@ -116,6 +116,23 @@ called speculatively.
 If Cfx.re adds an API for any of these, the collector gains it and the
 limitation is removed from this table. Until then the gap is stated, not filled.
 
+## Browsers
+
+The dashboard is server-rendered HTML and CSS with no JavaScript, so it has no
+framework baseline to state. It uses CSS custom properties, flexbox, grid and
+`prefers-color-scheme`, all of which have been baseline in every current browser
+for years.
+
+| Browser | Status |
+| --- | --- |
+| Chromium (Chrome, Edge) — current | **Verified.** Pages loaded in a real browser in light and dark; no console error, and no request left the machine. |
+| Firefox, Safari — current | **Untested.** Nothing in the markup or the stylesheet is engine-specific, but "written for it" is not "tested on it", and this table will not say otherwise until it has been. |
+| Older browsers without CSS custom properties | Renders as unstyled but complete markup; every value is still readable. |
+| A browser with JavaScript disabled | No difference — there is none to disable. |
+
+The interface is usable at phone width: the sidebar becomes a wrapping row and
+the tables stack. There is no separate mobile build.
+
 ## Database
 
 - SQLite through `node:sqlite`, local file, WAL mode for file databases.

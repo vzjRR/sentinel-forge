@@ -12,8 +12,8 @@ import type { CommandContext, CommandDefinition } from './types.js';
 
 export const reportCommand: CommandDefinition = {
   name: 'report',
-  summary: 'Write a JSON or Markdown report.',
-  usage: 'report [--format <json|markdown>] [--output <path>] [--server <path>]',
+  summary: 'Write a JSON, Markdown or HTML report.',
+  usage: 'report [--format <json|markdown|html>] [--output <path>] [--server <path>]',
   status: 'IMPLEMENTED',
   gate: 1,
   details: [
@@ -21,8 +21,9 @@ export const reportCommand: CommandDefinition = {
     'that path; without it, the report is written to stdout.',
     '',
     'JSON is the canonical form and is validated against the published schema',
-    'before it is written. HTML rendering is NOT IMPLEMENTED and is delivered',
-    'with the dashboard in GATE 6.',
+    'before it is written. HTML is a self-contained document: the stylesheet is',
+    'embedded, and it loads no script, font or image, so it renders identically',
+    'on a machine with no network access.',
   ],
   async run(context: CommandContext): Promise<CommandOutcome> {
     const resolved = await resolveScanContext(context);

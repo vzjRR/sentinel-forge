@@ -19,7 +19,7 @@ says so explicitly and names the gate that delivers it.
 | `sentinel init` | Create `sentinel.config.json`, the `.sentinel/` data directory and the local database. |
 | `sentinel scan` | Scan a server and report findings. Records the result locally. |
 | `sentinel dependencies` | Show the dependency graph, unresolved edges and cycles. |
-| `sentinel report` | Write a JSON or Markdown report. |
+| `sentinel report` | Write a JSON, Markdown or HTML report. |
 | `sentinel health` | Show the explainable server health score. |
 | `sentinel resource <name>` | Show health, findings, dependencies and events for one resource. |
 | `sentinel baseline <create\|list\|show\|delete>` | Record and inspect baselines. |
@@ -28,6 +28,7 @@ says so explicitly and names the gate that delivers it.
 | `sentinel security` | Show security indicators with evidence and confidence. |
 | `sentinel integrity <snapshot\|list\|compare\|delete>` | File integrity snapshots and comparison. |
 | `sentinel runtime <status\|import\|events>` | Import and inspect telemetry measured by the in-server collector. |
+| `sentinel dashboard` | Serve the local, read-only dashboard. Runs until interrupted. |
 | `sentinel purge [retention\|all]` | Delete locally stored data. Dry run unless `--confirm`. |
 | `sentinel doctor` | Check that this environment can run Sentinel Forge. |
 | `sentinel version` | Print product, report schema and database schema versions. |
@@ -48,7 +49,11 @@ is never confused with an unknown command, and never returns an empty result.
 | `--verbose` | | Enable debug logging on stderr. |
 | `--server` | path | Path to the FiveM server root. |
 | `--output`, `-o` | path | Write output to a file instead of stdout. |
-| `--format` | `json`\|`markdown` | Report output format. `html` is NOT IMPLEMENTED and is delivered with the dashboard in GATE 6. |
+| `--format` | `json`\|`markdown`\|`html` | Report output format. HTML is one self-contained file: the stylesheet is embedded and no script, font or image is loaded. |
+| `--host` | address | Interface the dashboard listens on. Default `127.0.0.1`. |
+| `--port` | number | Port the dashboard listens on. Default `7878`; `0` picks a free port. |
+| `--refresh` | seconds | How long a dashboard scan stays current. `0` scans once at startup. |
+| `--allow-non-loopback` | | Permit the dashboard to bind an address reachable from the network. It has no authentication. |
 | `--config` | path | Path to `sentinel.config.json`. |
 | `--database` | path | Path to the local SQLite database. |
 | `--confirm` | | Carry out a destructive operation. Without it, such commands only report what they would do. |
@@ -301,6 +306,80 @@ An incident groups changes and effects observed in the same window, with a
 timeline, the resources involved and a confidence that they are related.
 Confidence is capped at 0.85: **an incident never names a cause.**
 
+## Dashboard
+
+```bash
+sentinel dashboard                      # http://127.0.0.1:7878/
+sentinel dashboard --port 9000
+sentinel dashboard --refresh 0          # scan once at startup, never again
+```
+
+A local web interface over the same data every other command reports. It runs
+until you interrupt it with Ctrl-C.
+
+### Pages
+
+| Path | Shows |
+| --- | --- |
+| `/` | Health, counts, the most severe findings, and what has been recorded. |
+| `/server` | Identity, the full health breakdown with every deduction, and the parsed configuration. |
+| `/resources` | Every discovered resource, ordered by finding count. |
+| `/resources/<name>` | One resource: findings with evidence, dependencies both ways, scripts analysed, files with content hashes. |
+| `/dependencies` | The graph, unresolved edges and cycles. |
+| `/performance` | What the collector measured, the baselines recorded, and static performance findings — kept apart. |
+| `/security` | Security indicators with evidence and confidence. |
+| `/integrity` | Integrity snapshots. |
+| `/incidents` | Correlated incidents and the runtime events the collector observed. |
+| `/reports` | The current scan rendered as HTML, JSON or Markdown. |
+| `/settings` | What this session is reading, and what this interface can and cannot do. |
+
+Every page states when the data it shows was produced, and whether it came from
+a scan or from the local database.
+
+### JSON API
+
+Every page has a JSON equivalent under `/api`, serving the same data:
+`/api/health`, `/api/server`, `/api/resources`, `/api/resources/<name>`,
+`/api/dependencies`, `/api/performance`, `/api/security`, `/api/integrity`,
+`/api/incidents`, `/api/reports`, `/api/settings`.
+
+The dashboard is not a privileged consumer of its own product: anything a page
+shows can be fetched, scripted and diffed.
+
+### What it cannot do
+
+| | |
+| --- | --- |
+| Modify the FiveM server | No. Nothing in Sentinel Forge writes to it. |
+| Run a command against the server | No. |
+| Change configuration | No. Edit `sentinel.config.json`. |
+| Accept a request that is not GET or HEAD | No — refused with `405` before routing. |
+| Serve a file from disk | No. There is no static directory and no path to traverse. |
+| Reach the network | No. Pages load no script, font, image or analytics. |
+
+### Security
+
+The dashboard has **no authentication**, so it binds `127.0.0.1` and refuses any
+other address unless you pass `--allow-non-loopback`. The refusal exits `4`.
+
+Requests are checked against the `Host` header before routing: a page on another
+origin cannot point a DNS name at `127.0.0.1` and read your dashboard.
+
+Every response carries `Content-Security-Policy: default-src 'none'` with inline
+styles permitted and nothing else, plus `nosniff`, `DENY` framing, `no-referrer`
+and `no-store`. No CORS header is ever sent.
+
+Configuration values are withheld before they reach a page or an endpoint —
+by key name and by the product's own credential detector. `sv_licenseKey` is
+shown as a name with `(redacted)` where its value would be.
+
+### Refresh
+
+A scan is taken before the port opens, and re-taken when a request arrives more
+than `--refresh` seconds later (default 300). The browser never triggers a scan
+itself; the policy is the server's. Concurrent requests share one scan rather
+than starting several.
+
 ## Runtime telemetry
 
 ```bash
@@ -475,10 +554,17 @@ discovered in manifests. Two behaviours are worth knowing:
 ```bash
 sentinel report --server "/opt/fxserver" --format json --output report.json
 sentinel report --server "/opt/fxserver" --format markdown          # to stdout
+sentinel report --server "/opt/fxserver" --format html --output report.html
 ```
 
 JSON is the canonical form and is validated against the published schema before
 it is written. See [API.md](API.md).
+
+HTML is one self-contained file: the stylesheet is embedded and the document
+loads no script, no font and no image. It renders identically on a machine with
+no network access, and it carries a content security policy that permits no
+outbound request — so a report can be attached to a ticket or emailed without
+becoming a way to reach the reader's browser.
 
 ## Examples
 

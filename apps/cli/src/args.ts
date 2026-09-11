@@ -37,6 +37,17 @@ export interface GlobalOptions {
    * Destructive commands run as a dry run without it.
    */
   readonly confirm: boolean;
+  /** Interface the dashboard listens on. Loopback unless explicitly changed. */
+  readonly host?: string;
+  /** Port the dashboard listens on. `0` asks the operating system for one. */
+  readonly port?: number;
+  /** Seconds a dashboard scan stays current. `0` scans once at startup. */
+  readonly refresh?: number;
+  /**
+   * Required to bind the dashboard to an address reachable from the network.
+   * The dashboard has no authentication, so the default must be the safe one.
+   */
+  readonly allowNonLoopback: boolean;
 }
 
 export interface ParsedArgs {
@@ -48,7 +59,8 @@ export interface ParsedArgs {
 }
 
 interface OptionSpec {
-  readonly name: keyof GlobalOptions;
+  /** Key written into {@link GlobalOptions}, or the flag's own spelling. */
+  readonly name: keyof GlobalOptions | 'allow-non-loopback';
   readonly aliases: readonly string[];
   readonly takesValue: boolean;
   readonly valueName?: string;
@@ -100,6 +112,33 @@ export const OPTION_SPECS: readonly OptionSpec[] = Object.freeze([
     takesValue: false,
     description: 'Carry out a destructive operation. Without it, such commands only report what they would do.',
   },
+  {
+    name: 'host',
+    aliases: ['--host'],
+    takesValue: true,
+    valueName: 'address',
+    description: 'Interface the dashboard listens on. Default 127.0.0.1.',
+  },
+  {
+    name: 'port',
+    aliases: ['--port'],
+    takesValue: true,
+    valueName: 'number',
+    description: 'Port the dashboard listens on. Default 7878; 0 picks a free port.',
+  },
+  {
+    name: 'refresh',
+    aliases: ['--refresh'],
+    takesValue: true,
+    valueName: 'seconds',
+    description: 'How long a dashboard scan stays current. 0 scans once at startup.',
+  },
+  {
+    name: 'allow-non-loopback',
+    aliases: ['--allow-non-loopback'],
+    takesValue: false,
+    description: 'Permit the dashboard to bind an address reachable from the network. It has no authentication.',
+  },
   { name: 'help', aliases: ['--help', '-h'], takesValue: false, description: 'Show help for a command.' },
   { name: 'version', aliases: ['--version', '-V'], takesValue: false, description: 'Print the product version.' },
 ]);
@@ -107,6 +146,31 @@ export const OPTION_SPECS: readonly OptionSpec[] = Object.freeze([
 const BY_ALIAS = new Map<string, OptionSpec>(
   OPTION_SPECS.flatMap((spec) => spec.aliases.map((alias) => [alias, spec] as const)),
 );
+
+/**
+ * Reads a numeric option, refusing anything that is not a whole number in range.
+ *
+ * A port silently coerced from `"eighty"` to `NaN` would bind an arbitrary port
+ * and print a working URL, which is worse than an error.
+ *
+ * @throws {SentinelUserError} when the value is not a whole number in range.
+ */
+function parseNumericOption(
+  value: string | boolean | undefined,
+  name: string,
+  minimum: number,
+  maximum: number,
+): number | undefined {
+  if (typeof value !== 'string') return undefined;
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < minimum || parsed > maximum) {
+    throw new SentinelUserError(`Option ${name} requires a whole number between ${String(minimum)} and ${String(maximum)}.`, {
+      remediation: `Example: sentinel dashboard ${name} ${String(minimum === 0 ? 8080 : minimum)}`,
+    });
+  }
+  return parsed;
+}
 
 /**
  * Parses `argv` (without the node executable and script path).
@@ -161,6 +225,9 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     flags[spec.name] = value;
   }
 
+  const port = parseNumericOption(flags['port'], '--port', 0, 65_535);
+  const refresh = parseNumericOption(flags['refresh'], '--refresh', 0, 86_400);
+
   const format = flags['format'];
   if (typeof format === 'string' && !isReportFormat(format)) {
     throw new SentinelUserError(`Unsupported --format value: ${format}`, {
@@ -175,6 +242,10 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     help: flags['help'] === true,
     version: flags['version'] === true,
     confirm: flags['confirm'] === true,
+    allowNonLoopback: flags['allow-non-loopback'] === true,
+    ...(typeof flags['host'] === 'string' ? { host: flags['host'] } : {}),
+    ...(port === undefined ? {} : { port }),
+    ...(refresh === undefined ? {} : { refresh }),
     ...(typeof flags['server'] === 'string' ? { server: flags['server'] } : {}),
     ...(typeof flags['output'] === 'string' ? { output: flags['output'] } : {}),
     ...(typeof format === 'string' && isReportFormat(format) ? { format } : {}),

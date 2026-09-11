@@ -37,7 +37,7 @@ by, or sponsored by Rockstar Games, Cfx.re, the FiveM project, or txAdmin.
 
 ## Current status
 
-**GATE 5 — Runtime collector. Complete.**
+**GATE 6 — Dashboard. Complete.**
 
 Sentinel Forge scans a FiveM server, diagnoses it, and tracks it over time. It
 parses manifests and scripts without executing them, resolves the dependency
@@ -52,6 +52,9 @@ state transitions, and writes them to its own directory; `sentinel runtime
 import` reads them into the local database, where they feed the same regression
 engine that has been waiting for them.
 
+`sentinel dashboard` serves all of it as a local web interface, bound to
+`127.0.0.1` and read-only.
+
 Commands that belong to a later gate are present in the CLI and report
 `NOT IMPLEMENTED` with the gate that delivers them — they never return an empty
 or invented result.
@@ -60,11 +63,10 @@ See [`docs/GATE_STATUS.md`](docs/GATE_STATUS.md) for exactly what exists today.
 
 Every command in the product specification is implemented:
 `scan`, `health`, `resource`, `dependencies`, `baseline`, `compare`,
-`incidents`, `security`, `integrity`, `runtime`, `report`, `purge`, `init`,
-`doctor`, `version`, `help`.
+`incidents`, `security`, `integrity`, `runtime`, `dashboard`, `report`,
+`purge`, `init`, `doctor`, `version`, `help`.
 
-Still to come: the local dashboard (GATE 6) and the read-only MCP interface
-(GATE 7).
+Still to come: the read-only MCP interface (GATE 7).
 
 Sixteen rules are implemented and run against every scan:
 
@@ -156,6 +158,32 @@ property of the server rather than an estimate of one.
 On a server with no collector installed, a baseline records zero performance
 samples and says so. It never estimates a number it did not measure.
 
+### The dashboard
+
+```bash
+sentinel dashboard            # http://127.0.0.1:7878/
+```
+
+Eleven pages over the same data every command reports: overview, server,
+resources and resource detail, dependencies, performance, security, integrity,
+incidents, reports and settings. Every page states when its data was produced
+and whether it came from a scan or from the local database. Every page has a
+JSON equivalent under `/api`.
+
+It is **read-only and local**. It binds the loopback interface and refuses any
+other address without `--allow-non-loopback`, because it has no authentication
+and shows a map of a server's weaknesses. It accepts GET and HEAD only, serves
+no file from disk, emits no script, and loads nothing from the network.
+Configuration values are withheld before they reach a page — `sv_licenseKey` is
+shown as a name with `(redacted)` where its value would be.
+
+```bash
+sentinel report --format html --output report.html
+```
+
+The HTML report is one self-contained file: stylesheet embedded, no script, no
+font, no image. It renders identically on a machine with no network access.
+
 ## Requirements
 
 - Node.js **22.5 or newer** (for the bundled `node:sqlite` module)
@@ -225,7 +253,7 @@ These hold for every gate, not just this one.
 
 ```
 apps/cli              Command line interface
-apps/dashboard        Local dashboard              (GATE 6)
+apps/dashboard        Local dashboard
 apps/mcp              Read-only MCP server         (GATE 7)
 packages/shared       Types, rule catalog, report schema
 packages/core         Config, logging, errors, filesystem, SQLite, rule engine

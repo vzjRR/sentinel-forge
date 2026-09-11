@@ -43,7 +43,7 @@ of *what changes together*, not by technical layer.
 | `@sentinel-forge/cli` | The `sentinel` command surface. | 0 ✅ |
 | `@sentinel-forge/scanner` | Server discovery, resource discovery, manifest parsing, configuration analysis, the scan pipeline. | 1 ✅ |
 | `@sentinel-forge/dependencies` | Dependency graph construction and analysis. | 1 ✅ |
-| `@sentinel-forge/reports` | JSON and Markdown rendering. HTML arrives with the dashboard. | 1 ✅ |
+| `@sentinel-forge/reports` | JSON, Markdown and HTML rendering, plus the HTML primitives the dashboard shares. | 1 ✅ |
 | `@sentinel-forge/lua` | Lua lexing and block structure, shared by manifest parsing and script analysis. | 2 ✅ |
 | `@sentinel-forge/analyzer` | Lua, event and database analysis; health scoring. | 2 ✅ |
 | `@sentinel-forge/engine` | The scan pipeline: composes discovery, analysis, scoring and storage. | 2 ✅ |
@@ -52,6 +52,7 @@ of *what changes together*, not by technical layer.
 | `@sentinel-forge/security` | Secret, obfuscation, execution and suspicious-file indicators. | 4 ✅ |
 | `@sentinel-forge/integrity` | Integrity snapshots and comparison. | 4 ✅ |
 | `@sentinel-forge/runtime` | Locating the in-server collector, reading its telemetry and importing it idempotently. | 5 ✅ |
+| `@sentinel-forge/dashboard` | The local, read-only web interface and its JSON API. | 6 ✅ |
 
 Dependencies flow one way: `shared` and `lua` ← `core` ← the analysis packages
 ← `engine` ← the applications. `shared` has no
@@ -361,7 +362,43 @@ set of file names, so a document is identified by a digest over its
 measurements rather than by the file it was found in, and importing on a timer
 cannot multiply an operator's own data.
 
-## 13. What is deliberately not here
+## 13. The dashboard
+
+`sentinel dashboard` serves the same data every command reports, over
+`node:http` with no framework and no client-side script.
+
+**Server-rendered, with no JavaScript at all.** Giving a page behaviour would
+mean rendering third-party strings — resource names, file paths, Lua excerpts —
+into a JavaScript context. Nothing the dashboard needs to do is worth that, so
+the entire interface is HTML and CSS, the stylesheet is embedded, and the
+content security policy is `default-src 'none'` with inline styles and nothing
+else.
+
+**Escaping lives in one module.** `packages/reports/src/html/escape.ts` is the
+only place a value becomes markup. A view that assembles a tag by concatenation
+is a defect, and the property — not the spelling — is what the tests assert.
+
+**The route table is fixed.** No wildcard maps a URL onto a filesystem path, and
+no route serves a file, so path traversal is removed as a category rather than
+defended against.
+
+**Two data sources, never blended.** A cached scan of the server on disk, and
+the local database of what was recorded over time. Every page says which one it
+is showing and when that data was produced; a dashboard that renders a
+five-minute-old scan as though it were live is telling the operator something
+untrue, and they will act on it.
+
+**The refresh policy belongs to the server.** A scan is re-taken when a request
+arrives more than `--refresh` seconds after the last one. The browser cannot
+ask for a scan, because the browser cannot be trusted to be the only thing
+making the request.
+
+**Display redaction is a separate boundary.** The configuration is the one place
+raw values from the scanned server reach a page, and it is where credentials
+live. Values are withheld by key name *and* by the product's own credential
+detector, on the page and in the JSON API alike.
+
+## 14. What is deliberately not here
 
 - **No plugin system.** Rules are compiled in. A diagnostic tool that loads
   third-party code inherits its security properties.

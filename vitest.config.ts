@@ -29,6 +29,7 @@ const workspaceAliases = {
   '@sentinel-forge/runtime': path.resolve(rootDirectory, 'packages/runtime/src/index.ts'),
   '@sentinel-forge/engine': path.resolve(rootDirectory, 'packages/engine/src/index.ts'),
   '@sentinel-forge/reports': path.resolve(rootDirectory, 'packages/reports/src/index.ts'),
+  '@sentinel-forge/dashboard': path.resolve(rootDirectory, 'apps/dashboard/src/index.ts'),
   '@sentinel-forge/cli': path.resolve(rootDirectory, 'apps/cli/src/index.ts'),
 };
 

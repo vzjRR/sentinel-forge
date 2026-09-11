@@ -41,6 +41,9 @@
       "path": "packages/reports"
     },
     {
+      "path": "apps/dashboard"
+    },
+    {
       "path": "apps/cli"
     }
   ]

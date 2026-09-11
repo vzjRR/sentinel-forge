@@ -6,6 +6,78 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 © 2026 Talal Al Ghafri. All Rights Reserved.
 
+## [0.7.0] — GATE 6: Dashboard
+
+The product has an interface. It renders what the earlier gates produce, adds no
+analysis of its own, and cannot change anything.
+
+### Added
+
+- **`sentinel dashboard`**: a local web interface on `127.0.0.1:7878`, serving
+  eleven pages — overview, server, resources, resource detail, dependencies,
+  performance, security, integrity, incidents, reports and settings — and a
+  JSON equivalent for each under `/api`. Built on `node:http` with no framework
+  and no client-side script.
+- **HTML reports**: `sentinel report --format html`, and the same document at
+  `/reports/current.html`. One self-contained file — stylesheet embedded, no
+  script, no font, no image, and a content security policy that permits no
+  outbound request — so a report can be attached to a ticket without becoming a
+  way to reach the reader's browser.
+- **`packages/reports/src/html/`**: escaping, the stylesheet, and the components
+  both the report and the dashboard render through. One module is the only place
+  a value becomes markup.
+- **Provenance on every page.** Each page states when its data was produced and
+  whether it came from a scan or from the local database. A scan is re-taken
+  when a request arrives more than `--refresh` seconds after the last one
+  (default 300); the browser cannot ask for one.
+- **`tests/security/dashboard-exposure.test.ts`**: the dashboard driven over a
+  real socket against a server carrying fabricated credentials and a resource
+  whose name and manifest description are script payloads. Asserts that no
+  credential reaches any page, endpoint, or database row; that nothing from a
+  scanned server becomes executable markup; and that no path can make the
+  dashboard read a file.
+- **`tests/integration/dashboard.test.ts`**: every page and endpoint served and
+  fetched, including the `Host` check and raw request targets sent without a
+  client library in the way.
+
+### Fixed
+
+- **The dashboard's server page printed configuration values**, including
+  `sv_licenseKey`, and then `/api/server` did the same after the page was fixed.
+  Caught by the security suite before release. Values are now withheld by two
+  independent checks — the key name, using the same sensitive-key rules that
+  protect logs and reports, and the value's shape, using the product's own
+  credential detector — and a value reaches a page only if both pass.
+- **`RELIABILITY` and `INTEGRITY` health reasons were inaccurate.** They claimed
+  to be "NOT IMPLEMENTED in this build (GATE 4/5)". Integrity is implemented; it
+  simply cannot be scored from a single scan, because it is a comparison between
+  two snapshots. Both reasons now say what is actually true.
+- **`scripts/check-versions.mjs` only checked `apps/cli`.** It now enumerates
+  every workspace under `apps/`, so a new application cannot drift.
+
+### Changed
+
+- **`tests/security/repository-hygiene.test.ts` now tests the property rather
+  than a proxy.** It forbade importing `node:http` anywhere, which would have
+  failed the moment the product listened on a local socket. It now forbids
+  *outbound* calls everywhere — `fetch`, `http.request`, WebSocket, dgram, DNS —
+  and separately asserts that exactly one file imports a networking module, and
+  that it only listens.
+
+### Known limitations
+
+- **The dashboard has no authentication.** Anyone who can reach the port can
+  read everything it shows. This is why it binds loopback and refuses any other
+  address without `--allow-non-loopback`.
+- **No live updates and no graphs.** A page shows the scan taken at or since
+  startup, with the time it was taken. There is no websocket and no polling —
+  either would mean script on the page — and measurements are shown as tables
+  and figures rather than charts.
+- **Integrity comparison is not shown in the dashboard.** The page lists
+  snapshots; choosing which two to compare is the operator's decision, so the
+  comparison stays a command.
+- **One server per process.** There is no fleet view.
+
 ## [0.6.0] — GATE 5: Runtime collector
 
 The product measures a running server for the first time. Everything it reports

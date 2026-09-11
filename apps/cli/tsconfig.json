@@ -37,6 +37,9 @@
     },
     {
       "path": "../../packages/runtime"
+    },
+    {
+      "path": "../dashboard"
     }
   ],
   "exclude": [

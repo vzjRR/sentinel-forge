@@ -6,7 +6,7 @@ The authoritative record of what exists in this build. Anything not listed as
 delivered does not exist, however completely it may be described elsewhere in
 the documentation.
 
-**Current build: 0.6.0 — GATE 5 complete.**
+**Current build: 0.7.0 — GATE 6 complete.**
 
 | Gate | Scope | Status |
 | --- | --- | --- |
@@ -16,7 +16,7 @@ the documentation.
 | 3 | Performance intelligence | ✅ Complete |
 | 4 | Security and integrity | ✅ Complete |
 | 5 | Runtime resource | ✅ Complete |
-| 6 | Dashboard | ⬜ Not started |
+| 6 | Dashboard | ✅ Complete |
 | 7 | MCP interface | ⬜ Not started |
 | 8 | Commercial hardening | ⬜ Not started |
 
@@ -670,15 +670,111 @@ Run with Node.js 22.22.2 on Linux x64:
 | A limitation to render beside it | ✅ `RUNTIME_SECTION_LIMITATION` |
 | Local-only storage, no network | ✅ Nothing in the product makes a network request |
 
-## GATE 6 — Dashboard ⬜
+## GATE 6 — Dashboard ✅
 
-**Next gate.** Local-first, bound to `127.0.0.1`, read-only. It renders what the
-earlier gates produced and adds no analysis of its own; anything it shows that
-was not measured must say so, exactly as the CLI does.
+A local web interface over the data the earlier gates produce. It adds no
+analysis of its own and no number that was not measured.
+
+### Delivered
+
+| Area | What exists | Location |
+| --- | --- | --- |
+| HTML report | A self-contained document: stylesheet embedded, no script, no font, no image, and a content security policy that permits no outbound request. `sentinel report --format html` and `/reports/current.html` render the same thing. | `packages/reports/src/html/` |
+| Escaping | One module through which every untrusted string passes. Resource names, file paths and Lua excerpts are all third-party text, and a scanned server that can run script in the operator's browser has escaped the analysis boundary entirely. | `packages/reports/src/html/escape.ts` |
+| Components | Tables, cards, severity badges, finding cards with evidence, and the limitations block. Severity and confidence are rendered as separate things, never combined into one risk number. | `packages/reports/src/html/components.ts` |
+| Server | `node:http`, no framework. Loopback by default, GET and HEAD only, `Host` header checked, no file served from disk. | `apps/dashboard/src/server.ts` |
+| Routing | A fixed table. No wildcard maps a URL onto a filesystem path, so there is no traversal surface to defend. | `apps/dashboard/src/routes.ts` |
+| Pages | The eleven routes the specification names, each stating when its data was produced and whether it came from a scan or the database. | `apps/dashboard/src/views/pages.ts` |
+| JSON API | Eleven `/api/*` endpoints serving the same data as the pages. | `apps/dashboard/src/routes.ts` |
+| Redaction for display | Configuration values withheld by key name *and* by the product's own credential detector, on the page and in the API. | `apps/dashboard/src/redact.ts` |
+| Command | `sentinel dashboard`, with `--host`, `--port`, `--refresh` and `--allow-non-loopback`. | `apps/cli/src/commands/dashboard.ts` |
+
+### Security posture
+
+A dashboard over a diagnostic tool is a map of a server's weaknesses, rendered
+from untrusted input, served over HTTP. Five decisions follow, each enforced in
+the server rather than left to a view:
+
+| Decision | Why |
+| --- | --- |
+| Binds `127.0.0.1`; any other address needs `--allow-non-loopback` and exits `4` otherwise | There is no authentication. The default must be the safe one. |
+| GET and HEAD only | There is no state to change from a browser. |
+| `Host` header checked on every request | Without it, a page on another origin could point a DNS name at `127.0.0.1` and read every page here. |
+| No file served from disk, no static directory | Removes path traversal as a category rather than defending against it. |
+| No script emitted anywhere, CSP `default-src 'none'` | A page with behaviour would mean rendering third-party strings into a JavaScript context. |
+
+### The defect this gate caught before it shipped
+
+The first version of the server page printed configuration values. `server.cfg`
+is where `sv_licenseKey`, database connection strings and Discord tokens live,
+and `tests/security/dashboard-exposure.test.ts` caught the license key in the
+rendered HTML — and then again in `/api/server` after the page was fixed.
+
+Both are now withheld by two independent checks: the key name, using the same
+sensitive-key rules that protect logs and reports, and the value's shape, using
+the product's own credential detector. A value reaches a page only if both
+pass. No other surface in the product displays a configuration value, so this
+was new code's defect rather than a pre-existing leak — which is exactly the
+kind of thing a security suite exists to catch at the moment the surface is
+added.
+
+### Validation
+
+Run with Node.js 22.22.2 on Linux x64:
+
+| Check | Result |
+| --- | --- |
+| `npm run check:versions` | ✅ Pass — 0.7.0 across 15 packages |
+| `npm run check:migrations` | ✅ Pass — 3 migrations current |
+| `npm run lint` | ✅ Pass — 0 errors, 0 warnings |
+| `npm run typecheck` | ✅ Pass |
+| `npm run test:unit` | ✅ 570 tests |
+| `npm run test:integration` | ✅ 118 tests |
+| `npm run test:security` | ✅ 60 tests |
+| `npm run test:performance` | ✅ 16 tests |
+| Total | ✅ 764 tests, 78 files |
+
+Rendered pages were also loaded in Chromium, light and dark: no console error,
+and no request left the machine. Firefox and Safari are untested — see
+[COMPATIBILITY.md](COMPATIBILITY.md).
+
+### Known limitations of this build
+
+1. **No authentication.** Anyone who can reach the port can read everything the
+   dashboard shows. This is why it binds loopback and refuses otherwise.
+2. **No live updates.** A page shows the scan taken at or since startup, with
+   the time it was taken. There is no websocket and no polling; adding one
+   would mean script on the page.
+3. **No graphs.** Measurements are shown as tables and figures. A chart would
+   need either a library — which the product does not take — or hand-drawn SVG,
+   and a misleading chart is worse than an honest table.
+4. **The dashboard cannot start a scan on request.** The refresh policy belongs
+   to the server, not to the browser, because the browser cannot be trusted to
+   be the only thing making the request.
+5. **Integrity comparison is not shown.** The page lists snapshots; comparing
+   two of them is `sentinel integrity compare`. The comparison is a command
+   because choosing which two to compare is the operator's decision.
+6. **One server per process.** The dashboard serves the server its configuration
+   points at. There is no fleet view, and none is planned before the MVP is
+   validated in real use.
+7. **Only Chromium has been verified.** The interface uses nothing
+   engine-specific, but Firefox and Safari have not been tested and this file
+   will not claim they have.
+
+### Readiness for GATE 7
+
+| Requirement | Ready |
+| --- | --- |
+| A read-only data surface with fixed routes | ✅ `/api/*` |
+| Report types stable and versioned | ✅ Schema 1.2 |
+| Redaction enforced at the display boundary | ✅ `apps/dashboard/src/redact.ts` |
+| Every answer carrying its limitations | ✅ `limitations` in every report and page |
 
 ## GATE 7 — MCP interface ⬜
 
-Not started. Read-only. See [MCP.md](MCP.md).
+**Next gate.** A read-only MCP server exposing the ten `sentinel_*` tools. It
+must not become a way to do what the CLI refuses to do: no modification, no
+execution, no credential in a tool result. See [MCP.md](MCP.md).
 
 ## GATE 8 — Commercial hardening ⬜
 

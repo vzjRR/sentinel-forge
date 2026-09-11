@@ -13,6 +13,7 @@
 
 import { baselineCommand } from './baseline.js';
 import { compareCommand } from './compare.js';
+import { dashboardCommand } from './dashboard.js';
 import { dependenciesCommand } from './dependencies.js';
 import { doctorCommand } from './doctor.js';
 import { healthCommand } from './health.js';
@@ -41,6 +42,7 @@ const COMMANDS: readonly CommandDefinition[] = Object.freeze([
   securityCommand,
   integrityCommand,
   runtimeCommand,
+  dashboardCommand,
   reportCommand,
   purgeCommand,
   doctorCommand,

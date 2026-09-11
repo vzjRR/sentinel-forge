@@ -11,6 +11,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { SentinelNotImplementedError, resolveWithinRoot } from '@sentinel-forge/core';
 import type { ReportFormat, SentinelReport } from '@sentinel-forge/shared';
+import { renderHtmlReport } from './html/report.js';
 import { renderJsonReport } from './json.js';
 import { renderMarkdownReport } from './markdown.js';
 
@@ -23,8 +24,8 @@ export const REPORT_FILE_EXTENSIONS: Readonly<Record<ReportFormat, string>> = Ob
 /**
  * Renders a report in the requested format.
  *
- * @throws {SentinelNotImplementedError} for `html`, which is delivered with the
- *   dashboard in GATE 6. Rendering a placeholder page would misrepresent it.
+ * @throws {SentinelNotImplementedError} for a format this build does not
+ *   render. A placeholder document would misrepresent the format as delivered.
  */
 export function renderReport(report: SentinelReport, format: ReportFormat): string {
   switch (format) {
@@ -33,9 +34,7 @@ export function renderReport(report: SentinelReport, format: ReportFormat): stri
     case 'markdown':
       return renderMarkdownReport(report);
     case 'html':
-      throw new SentinelNotImplementedError('HTML report rendering', 6, {
-        remediation: 'Use --format json or --format markdown. HTML is delivered with the dashboard in GATE 6.',
-      });
+      return renderHtmlReport(report);
     default:
       throw new SentinelNotImplementedError(`Report format "${String(format)}"`, 6);
   }

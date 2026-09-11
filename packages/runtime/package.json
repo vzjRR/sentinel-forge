@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-forge/runtime",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "description": "Ingestion of telemetry written by the sentinel_doctor runtime collector.",
   "license": "SEE LICENSE IN LICENSE",
@@ -20,8 +20,8 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "@sentinel-forge/core": "0.6.0",
-    "@sentinel-forge/performance": "0.6.0",
-    "@sentinel-forge/shared": "0.6.0"
+    "@sentinel-forge/core": "0.7.0",
+    "@sentinel-forge/performance": "0.7.0",
+    "@sentinel-forge/shared": "0.7.0"
   }
 }

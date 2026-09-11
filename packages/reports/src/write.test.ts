@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SentinelNotImplementedError, SentinelSecurityError } from '@sentinel-forge/core';
-import { REPORT_SCHEMA_VERSION, type SentinelReport } from '@sentinel-forge/shared';
+import { REPORT_SCHEMA_VERSION, type ReportFormat, type SentinelReport } from '@sentinel-forge/shared';
 import { renderReport, writeReport } from './write.js';
 
 const REPORT: SentinelReport = {
@@ -66,9 +66,22 @@ describe('report writing', () => {
     expect(written.path).toBe(target);
   });
 
-  it('reports HTML as not implemented rather than rendering a placeholder', () => {
-    expect(() => renderReport(REPORT, 'html')).toThrow(SentinelNotImplementedError);
-    expect(() => renderReport(REPORT, 'html')).toThrow(/GATE 6/);
+  it('renders HTML as a self-contained document', () => {
+    const html = renderReport(REPORT, 'html');
+    expect(html.startsWith('<!doctype html>')).toBe(true);
+    expect(html).not.toMatch(/<script/i);
+  });
+
+  it('refuses a format this build does not render, rather than emitting a placeholder', () => {
+    // `as ReportFormat` is the point of the test: a format arriving from an
+    // older or newer caller must fail loudly, not produce an empty document.
+    expect(() => renderReport(REPORT, 'pdf' as ReportFormat)).toThrow(SentinelNotImplementedError);
+  });
+
+  it('writes an HTML report to disk', async () => {
+    const written = await writeReport({ report: REPORT, format: 'html', outputDirectory: workspace });
+    expect(written.path.endsWith('.html')).toBe(true);
+    expect(written.bytes).toBeGreaterThan(0);
   });
 
   it('refuses an output path that escapes its own directory through a link', async () => {
