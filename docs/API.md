@@ -86,12 +86,13 @@ Evidence describes observations. It never asserts causation.
 
 ## Report envelope
 
-`schemaVersion: "1.1"`.
+`schemaVersion: "1.2"`.
 
 Schema history:
 
 | Version | Change |
 | --- | --- |
+| 1.2 | Added the optional `performance.runtime` object, describing what the in-server collector measured. Absent when no collector is installed — which is the same thing it means: nothing was measured. |
 | 1.1 | Added the optional `events` section and the optional per-resource `health` object. Additive: a 1.0 consumer sees the fields it already knows, unchanged. |
 | 1.0 | Initial schema. |
 
@@ -112,7 +113,18 @@ Schema history:
   "resources": [ { "resource": { ... }, "health": { ... }, "findingIds": [ ... ] } ],
   "findings": [ /* Finding[] */ ],
   "dependencies": { "edges": [], "unresolved": [], "cycles": [] },
-  "performance":  { "collected": false, "sampleCount": 0, "regressions": [] },
+  "performance":  {
+    "collected": true, "sampleCount": 1440, "regressions": [],
+    // Present only when the sentinel_doctor collector is installed.
+    "runtime": {
+      "collectorInstalled": true, "documentCount": 12,
+      "sampleCount": 1440, "eventCount": 38,
+      "metrics": ["scheduler_latency_ms"], "resourcesObserved": ["sf_core"],
+      "earliest": "...", "latest": "...",
+      "dropped": { "samples": 0, "events": 0 },
+      "unreadable": [], "limitation": "..."
+    }
+  },
   "security":     { "findingIds": [], "bySeverity": {}, "limitation": "..." },
   "integrity":    { "added": [], "modified": [], "deleted": [] },
   "incidents": [],
@@ -127,6 +139,15 @@ Two rules govern reading a report:
    emitted empty.
 2. **`limitations` is always populated.** It states what the report does not
    establish. Rendering a report without it misrepresents the analysis.
+3. **`performance.collected` is not `performance.runtime !== undefined`.** A
+   collector can be installed and have measured nothing yet; `runtime` is then
+   present with `sampleCount: 0` and `collected` is `false`. "Installed" and
+   "measuring" are different states, and conflating them would let an empty
+   report read as a healthy one.
+4. **No field anywhere carries per-resource timing.** FiveM exposes no scripting
+   API for it. A consumer looking for one will not find it, and must not
+   synthesise it from `scheduler_latency_ms`, which is attributed to `(server)`
+   precisely because it cannot be attributed to a resource.
 
 ### Health score
 

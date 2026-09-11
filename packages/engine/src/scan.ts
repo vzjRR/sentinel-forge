@@ -25,7 +25,10 @@ import {
   BASE_LIMITATIONS,
   type EventReportSection,
   type HealthCategory,
+  RUNTIME_SECTION_LIMITATION,
   SECURITY_SECTION_LIMITATION,
+  type PerformanceReportSection,
+  type RuntimeReportSection,
   type SecurityReportSection,
   countBySeverity,
   compareFindings,
@@ -45,6 +48,7 @@ import {
   type DependencyGraph,
   type GraphResourceInput,
 } from '@sentinel-forge/dependencies';
+import { readTelemetry, summarize, type TelemetryReadResult } from '@sentinel-forge/runtime';
 import path from 'node:path';
 import {
   analyzeManifestStructure,
@@ -98,6 +102,12 @@ export interface ScanOptions {
    * script contents and should not pay for reading them.
    */
   readonly analyzeScripts?: boolean;
+  /**
+   * When false, the in-server collector's telemetry is not read. The scan then
+   * reports that runtime data was not collected, rather than reporting no
+   * runtime data — which would be a different and untrue statement.
+   */
+  readonly readRuntimeTelemetry?: boolean;
 }
 
 export interface ScanResult {
@@ -107,6 +117,8 @@ export interface ScanResult {
   readonly config?: ParsedServerConfig;
   readonly eventGraph: EventGraph;
   readonly scripts: readonly ScriptAnalysis[];
+  /** Collector telemetry found on disk, absent when reading it was not requested. */
+  readonly telemetry?: TelemetryReadResult;
   /** Findings before the minimum-severity filter, for storage and counting. */
   readonly allFindings: readonly Finding[];
   readonly runId: string;
@@ -202,7 +214,13 @@ export const SCORED_CATEGORIES: readonly HealthCategory[] = Object.freeze([
 export const UNSCORED_CATEGORY_REASONS: Readonly<Partial<Record<HealthCategory, string>>> = Object.freeze({
   SECURITY: 'Security analysis is NOT IMPLEMENTED in this build (GATE 4).',
   INTEGRITY: 'Integrity tracking is NOT IMPLEMENTED in this build (GATE 4).',
-  RELIABILITY: 'Runtime error data is NOT IMPLEMENTED in this build (GATE 5).',
+  // The collector reports resource state transitions, not errors: FiveM
+  // exposes no scripting API through which one resource can observe another's
+  // runtime errors. Scoring reliability from state transitions alone would be
+  // inventing a measurement, so the category stays unscored and says why.
+  RELIABILITY:
+    'Reliability is not scored: FiveM exposes no scripting API for runtime errors, so none are collected. ' +
+    'Resource state transitions the collector observed are shown by `sentinel runtime events`.',
 });
 
 /**
@@ -302,6 +320,18 @@ export async function scanServer(options: ScanOptions): Promise<ScanResult> {
     ...(options.logger === undefined ? {} : { logger: options.logger }),
     scannedAt: startedAt,
   });
+
+  // Read after discovery so a scan of a server without the collector pays only
+  // two directory listings for finding out it is not installed.
+  const telemetry =
+    options.readRuntimeTelemetry === false
+      ? undefined
+      : await readTelemetry({
+          serverRoot: options.serverPath,
+          resourceDirectories: options.resourceDirectories,
+          ...(options.maxFileBytes === undefined ? {} : { maxFileBytes: options.maxFileBytes }),
+          ...(options.logger === undefined ? {} : { logger: options.logger }),
+        });
 
   const findings: Finding[] = [];
 
@@ -419,9 +449,18 @@ export async function scanServer(options: ScanOptions): Promise<ScanResult> {
     cycles: graph.cycles,
   };
 
+  const performance = toPerformanceSection(telemetry);
+
   const limitations = [
     ...BASE_LIMITATIONS,
-    'Performance analysis is static: it reads code, and does not measure a running server. Runtime timing arrives in GATE 3.',
+    'Performance findings are produced by reading code, not by measuring a running server.',
+    ...(performance.runtime === undefined
+      ? [
+          options.readRuntimeTelemetry === false
+            ? 'Runtime telemetry was not read for this command; no statement is made about the running server.'
+            : `Runtime telemetry is not available: the ${'sentinel_doctor'} collector is not installed on this server, so nothing about the running server was measured.`,
+        ]
+      : [RUNTIME_SECTION_LIMITATION]),
     ...(securityAnalyzed
       ? [SECURITY_SECTION_LIMITATION]
       : ['Security analysis was not run for this command; the security section is absent rather than empty.']),
@@ -447,6 +486,7 @@ export async function scanServer(options: ScanOptions): Promise<ScanResult> {
     findings: reported,
     dependencies,
     events: toEventSection(eventGraph),
+    performance,
     ...(securityAnalyzed ? { security: toSecuritySection(reported) } : {}),
     incidents: [],
     limitations,
@@ -459,6 +499,7 @@ export async function scanServer(options: ScanOptions): Promise<ScanResult> {
     ...(config === undefined ? {} : { config }),
     eventGraph,
     scripts,
+    ...(telemetry === undefined ? {} : { telemetry }),
     allFindings: enabled,
     runId,
     durationMs,
@@ -466,6 +507,42 @@ export async function scanServer(options: ScanOptions): Promise<ScanResult> {
 }
 
 /** Persists a scan result. Every write happens in one transaction. */
+/**
+ * Report view of what the runtime collector measured.
+ *
+ * `collected` is true only when samples exist. A scan of a server with the
+ * collector installed but nothing yet written reports zero samples and
+ * `collected: false` — "installed" and "measuring" are different states, and
+ * conflating them would let an empty report read as a healthy one.
+ */
+function toPerformanceSection(telemetry: TelemetryReadResult | undefined): PerformanceReportSection {
+  if (telemetry === undefined || telemetry.installations.length === 0) {
+    return { sampleCount: 0, regressions: [], collected: false };
+  }
+
+  const summary = summarize(telemetry);
+  const runtime: RuntimeReportSection = {
+    collectorInstalled: true,
+    documentCount: summary.documentCount,
+    sampleCount: summary.sampleCount,
+    eventCount: summary.eventCount,
+    metrics: summary.metrics,
+    resourcesObserved: summary.resourcesObserved,
+    ...(summary.earliest === undefined ? {} : { earliest: summary.earliest }),
+    ...(summary.latest === undefined ? {} : { latest: summary.latest }),
+    dropped: summary.dropped,
+    unreadable: telemetry.problems.map((problem) => ({ file: problem.file, reason: problem.reason })),
+    limitation: RUNTIME_SECTION_LIMITATION,
+  };
+
+  return {
+    sampleCount: summary.sampleCount,
+    regressions: [],
+    collected: summary.sampleCount > 0,
+    runtime,
+  };
+}
+
 /** Report view of the security findings, always carrying the standing limitation. */
 function toSecuritySection(findings: readonly Finding[]): SecurityReportSection {
   const security = findings.filter((finding) => finding.category === 'SECURITY');

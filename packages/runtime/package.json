@@ -1,8 +1,8 @@
 {
-  "name": "@sentinel-forge/analyzer",
+  "name": "@sentinel-forge/runtime",
   "version": "0.6.0",
   "private": true,
-  "description": "Lua, event and database analysis, and explainable health scoring.",
+  "description": "Ingestion of telemetry written by the sentinel_doctor runtime collector.",
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "main": "./dist/index.js",
@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@sentinel-forge/core": "0.6.0",
-    "@sentinel-forge/lua": "0.6.0",
+    "@sentinel-forge/performance": "0.6.0",
     "@sentinel-forge/shared": "0.6.0"
   }
 }

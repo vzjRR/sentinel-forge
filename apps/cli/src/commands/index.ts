@@ -24,6 +24,7 @@ import { purgeCommand } from './purge.js';
 import { reportCommand } from './report.js';
 import { securityCommand } from './security.js';
 import { resourceCommand } from './resource.js';
+import { runtimeCommand } from './runtime.js';
 import { scanCommand } from './scan.js';
 import { versionCommand } from './version.js';
 import type { CommandDefinition } from './types.js';
@@ -39,6 +40,7 @@ const COMMANDS: readonly CommandDefinition[] = Object.freeze([
   incidentsCommand,
   securityCommand,
   integrityCommand,
+  runtimeCommand,
   reportCommand,
   purgeCommand,
   doctorCommand,

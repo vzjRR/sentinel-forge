@@ -51,7 +51,7 @@ of *what changes together*, not by technical layer.
 | `@sentinel-forge/incidents` | Change correlation and incident timelines. | 3 ✅ |
 | `@sentinel-forge/security` | Secret, obfuscation, execution and suspicious-file indicators. | 4 ✅ |
 | `@sentinel-forge/integrity` | Integrity snapshots and comparison. | 4 ✅ |
-| `@sentinel-forge/runtime` | Ingestion of telemetry from the in-server collector. | 5 |
+| `@sentinel-forge/runtime` | Locating the in-server collector, reading its telemetry and importing it idempotently. | 5 ✅ |
 
 Dependencies flow one way: `shared` and `lua` ← `core` ← the analysis packages
 ← `engine` ← the applications. `shared` has no
@@ -323,16 +323,43 @@ must be able to distinguish "measured, found nothing" from "not measured".
 `limitations` is always populated — a report that does not state what it fails
 to establish misrepresents its own analysis.
 
-## 12. Runtime collection (GATE 5)
+## 12. Runtime collection
 
-`resources/sentinel_doctor` will collect telemetry from inside a running server.
-It is constrained by design: it does not inject code, modify other resources,
-download or execute anything, change server configuration, or surveil players.
+`resources/sentinel_doctor` is an optional server-side FiveM resource that
+measures the running server. It is constrained by design: it does not inject
+code, modify other resources, download or execute anything, change server
+configuration, or surveil players. Those constraints are asserted against its
+source by `tests/integration/collector-resource.test.ts`, using the product's
+own Lua analysis — a promise in a README is not a control.
 
-No FiveM API will be used there until it has been verified against official
-Cfx.re documentation and tested. Where an API does not exist, the limitation is
-documented and the closest safe alternative is implemented. Runtime data is
-never synthesised.
+There is no connection between the CLI and the server. The collector writes
+files into its own resource directory with `SaveResourceFile`; the CLI reads
+them from disk. Nothing listens on a port, and nothing is sent anywhere.
+
+```
+sentinel_doctor (in the server)        sentinel (on the operator's machine)
+  measure ──► buffer ──► flush to  ──►  locate ──► parse ──► digest ──► import
+              (bounded)  its own dir             (version    (skip     (samples
+                                                  checked)    seen)     + events)
+```
+
+Every native and event it uses was verified against the official declarations in
+`citizenfx/fivem` and `docs.fivem.net` before it was used. One check shaped the
+design of the whole component: **FiveM exposes no scripting API for per-resource
+CPU or tick time on the server.** The official profiler is a console command
+that cannot be driven from a script.
+
+So the collector reports no per-resource timing, and neither does anything
+downstream of it. What it measures instead is scheduler latency — how late the
+server serviced the collector's own thread — attributed to `(server)`, because
+that is what the measurement supports. A fabricated per-resource figure would
+corrupt every baseline and regression comparison built on it, and nothing
+downstream could detect that it had.
+
+Ingestion is idempotent by construction. The collector rotates through a fixed
+set of file names, so a document is identified by a digest over its
+measurements rather than by the file it was found in, and importing on a timer
+cannot multiply an operator's own data.
 
 ## 13. What is deliberately not here
 

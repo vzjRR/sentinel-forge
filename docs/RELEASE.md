@@ -84,14 +84,29 @@ Everything here is verified before a release is tagged.
 
 ## Release contents
 
-A release contains the CLI, the dashboard (from GATE 6), the
-`sentinel_doctor` resource (from GATE 5), documentation, `LICENSE`,
+A release contains the CLI, the `sentinel_doctor` resource, the dashboard (from
+GATE 6), documentation, `LICENSE`,
 `THIRD_PARTY_LICENSES.md`, compatibility information and the changelog.
 
 It never contains secrets, production data, developer credentials, test
 credentials, or source maps for production builds.
 
-## Runtime overhead (from GATE 5)
+## Runtime overhead
 
-The in-server collector is benchmarked before every release. Significant runtime
+The in-server collector's footprint is checked before every release. Significant
 overhead is a release blocker, not a known issue.
+
+Two parts, measured differently:
+
+1. **Disk and ingestion cost — automated.** `npm run test:performance` measures
+   the worst-case and steady-state size of the telemetry the collector writes,
+   and the cost of importing a full rotation. These run in CI like any other
+   test.
+2. **In-server CPU and tick cost — manual.** It requires a running FiveM server,
+   which no automated test has. Run the profiler comparison documented in
+   `resources/sentinel_doctor/README.md` (record with the collector stopped,
+   then with it running) on a server carrying real load, and record the result
+   in the release notes.
+
+Step 2 is not skippable because step 1 passed. They measure different things,
+and only step 2 measures the cost the operator actually pays.

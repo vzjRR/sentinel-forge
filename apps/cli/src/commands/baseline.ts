@@ -5,9 +5,11 @@
  * inventory with content hashes, its configuration fingerprint, the findings
  * that stood and the health score.
  *
- * It records performance samples only if something collected them. No runtime
- * collector exists before GATE 5, so a baseline taken by this build reports
- * zero samples rather than estimating timing from static analysis.
+ * It records performance samples only if something collected them: capturing a
+ * baseline claims the samples imported since the previous one, which is what
+ * makes two measurement windows comparable. On a server with no collector
+ * installed, a baseline reports zero samples rather than estimating timing from
+ * static analysis.
  */
 
 import {
@@ -37,8 +39,9 @@ export const baselineCommand: CommandDefinition = {
     '',
     'A baseline records resource content hashes, the configuration fingerprint,',
     'the findings that stood and the health score. Performance samples are',
-    'included only if a collector recorded them; this build has none, so a',
-    'baseline reports zero samples rather than estimating timing.',
+    'included only if the sentinel_doctor collector measured them and',
+    '`sentinel runtime import` read them in; a baseline claims the samples',
+    'collected since the previous one. Timing is never estimated.',
   ],
   async run(context: CommandContext): Promise<CommandOutcome> {
     const subcommand = context.positionals[0] ?? 'list';
@@ -87,7 +90,7 @@ export const baselineCommand: CommandDefinition = {
               [
                 'Performance samples',
                 record.sampleCount === 0
-                  ? 'none collected (runtime collection arrives in GATE 5)'
+                  ? 'none collected (install sentinel_doctor, then `sentinel runtime import`)'
                   : String(record.sampleCount),
               ],
               ['Captured', record.createdAt],

@@ -32,6 +32,9 @@
       "path": "packages/integrity"
     },
     {
+      "path": "packages/runtime"
+    },
+    {
       "path": "packages/engine"
     },
     {

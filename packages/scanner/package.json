@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-forge/scanner",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "description": "Server discovery, resource discovery, manifest parsing and configuration analysis.",
   "license": "SEE LICENSE IN LICENSE",
@@ -20,8 +20,8 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "@sentinel-forge/core": "0.5.0",
-    "@sentinel-forge/lua": "0.5.0",
-    "@sentinel-forge/shared": "0.5.0"
+    "@sentinel-forge/core": "0.6.0",
+    "@sentinel-forge/lua": "0.6.0",
+    "@sentinel-forge/shared": "0.6.0"
   }
 }

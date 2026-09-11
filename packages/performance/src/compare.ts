@@ -200,7 +200,7 @@ function comparePerformance(input: CompareBaselinesInput): PerformanceComparison
       compared: false,
       reason:
         before.length === 0 && after.length === 0
-          ? 'No performance samples were recorded for either baseline. Timing data requires the runtime collector (GATE 5); this comparison covers resource content, configuration and findings only.'
+          ? 'No performance samples were recorded for either baseline. Timing data requires the sentinel_doctor collector; install it, run `sentinel runtime import`, and capture baselines around the change. This comparison covers resource content, configuration and findings only.'
           : `Performance samples were recorded for only one of the two baselines (${String(before.length)} and ${String(after.length)}), so no comparison is possible.`,
       results: [],
       regressions: [],

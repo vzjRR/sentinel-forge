@@ -6,6 +6,76 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 © 2026 Talal Al Ghafri. All Rights Reserved.
 
+## [0.6.0] — GATE 5: Runtime collector
+
+The product measures a running server for the first time. Everything it reports
+was measured; what FiveM does not expose is stated rather than estimated.
+
+### Added
+
+- **`resources/sentinel_doctor`**: a server-side FiveM resource that measures
+  scheduler latency, resource state, resource state transitions and a player
+  count, and writes them into its own directory with `SaveResourceFile`. It
+  makes no network request, executes nothing, modifies nothing, and reads no
+  player identity. Every native and event it uses was verified against the
+  official declarations in `citizenfx/fivem` and `docs.fivem.net` before use.
+- **`@sentinel-forge/runtime`**: locating the collector, reading its telemetry,
+  and importing it. Ingestion is idempotent — the collector rotates through a
+  fixed set of file names, so each document is identified by a digest over its
+  measurements and imported once, however often the import runs.
+- **Command `sentinel runtime`** with `status`, `import` and `events`.
+- **Migration 3** (`runtime_ingest_files`, `runtime_events`): what has been
+  imported, and the events the collector observed — kept apart from the
+  `incidents` tables, so what the server did is never confused with what
+  Sentinel Forge inferred.
+- **Baselines claim measured samples.** Capturing a baseline claims the samples
+  collected since the previous one, which is what makes `sentinel compare`
+  compare two measurement windows rather than two arbitrary slices of history.
+- **Report schema 1.2**: an optional `performance.runtime` object describing
+  what the collector measured. Additive; a 1.0 consumer is unaffected.
+- **`tests/integration/collector-resource.test.ts`**: the collector analysed by
+  the product that ships it. Every constraint its documentation claims — no
+  network access, no code execution, no writes outside its own directory, no
+  player identity, bounded buffers, no per-resource timing metric — is asserted
+  against the actual Lua source using Sentinel Forge's own lexer. A promise in a
+  README is not a control.
+- **`tests/integration/runtime-telemetry.test.ts`**: collector installed →
+  telemetry written → imported → baselined → compared, including a measured
+  latency regression reaching the regression engine attributed to `(server)`.
+- **`tests/performance/collector.test.ts`**: the collector's disk footprint,
+  worst case and steady state, and the cost of importing a full rotation.
+
+### Changed
+
+- **`PERF-REGRESSION-001` was described wrongly.** It claimed to detect a
+  regression in *resource tick time*. No such measurement exists or can exist:
+  FiveM exposes no scripting API for per-resource CPU or tick time. The rule
+  compares scheduler latency attributed to the server, and now says so.
+- **The `RELIABILITY` health category** no longer reports itself as awaiting a
+  later gate. It is unscored because FiveM exposes no scripting API for runtime
+  errors — a permanent limitation, not a missing feature — and the reason now
+  states that and points at `sentinel runtime events`.
+- A scan now reports what the collector measured, separately from static
+  analysis. With no collector installed, the report says nothing was measured
+  rather than implying nothing was wrong.
+
+### Known limitations
+
+- **No per-resource CPU or tick time.** FiveM exposes no scripting API for it.
+  The official profiler (`profiler record` / `profiler saveJSON`) is a console
+  command that cannot be driven from a script. A fabricated number would corrupt
+  every baseline and regression comparison built on it, so none is produced.
+- **The collector's in-server CPU cost is not measured automatically.** It
+  requires a running FiveM server, which no test in this repository has. The
+  manual procedure is documented in `resources/sentinel_doctor/README.md` and
+  run before each release; the disk and ingestion costs *are* measured
+  automatically.
+- **Scheduler latency is measured from inside the collector's own thread.** It
+  reflects how promptly the server serviced that thread. It is a real property
+  of the server, but it does not identify which resource made it late.
+- **Telemetry arrives in batches.** The collector flushes once a minute by
+  default, so the newest measurements are up to one flush interval old.
+
 ## [0.5.0] — GATE 4: Security and integrity
 
 Every command in the product specification is now implemented.

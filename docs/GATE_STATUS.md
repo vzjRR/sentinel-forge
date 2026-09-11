@@ -6,7 +6,7 @@ The authoritative record of what exists in this build. Anything not listed as
 delivered does not exist, however completely it may be described elsewhere in
 the documentation.
 
-**Current build: 0.5.0 — GATE 4 complete.**
+**Current build: 0.6.0 — GATE 5 complete.**
 
 | Gate | Scope | Status |
 | --- | --- | --- |
@@ -15,7 +15,7 @@ the documentation.
 | 2 | Diagnostic engine | ✅ Complete |
 | 3 | Performance intelligence | ✅ Complete |
 | 4 | Security and integrity | ✅ Complete |
-| 5 | Runtime resource | ⬜ Not started |
+| 5 | Runtime resource | ✅ Complete |
 | 6 | Dashboard | ⬜ Not started |
 | 7 | MCP interface | ⬜ Not started |
 | 8 | Commercial hardening | ⬜ Not started |
@@ -540,23 +540,141 @@ nothing that reads as a credential.
 | A rule requiring runtime data | ✅ `PERF-REGRESSION-001` |
 | Health category awaiting runtime data | ✅ `RELIABILITY`, reported as unavailable with the reason |
 
-## GATE 5 — Runtime resource ⬜
+## GATE 5 — Runtime resource ✅
 
-**Next gate.** `resources/sentinel_doctor`: safe runtime telemetry, resource
-state monitoring, event-driven collection, and mandatory overhead benchmarks.
+The product measures a running server for the first time.
 
-Every FiveM API used must first be verified against official Cfx.re
-documentation. Where an API does not exist or does not expose what is needed,
-the limitation is documented and the closest safe alternative is implemented.
-Runtime data is never synthesised.
+### The finding that shaped this gate
 
-Exit criteria: the collector uses only verified APIs; its overhead is measured
-and documented; collected samples flow into the existing regression engine; and
-nothing is reported that was not measured.
+Before writing a line of the collector, every FiveM API it might use was checked
+against the official native declarations in
+[`citizenfx/fivem`](https://github.com/citizenfx/fivem/tree/master/ext/native-decls)
+and [docs.fivem.net](https://docs.fivem.net/). One check changed the design of
+the whole gate:
+
+> **FiveM exposes no scripting API for per-resource CPU or tick time on the
+> server.** The official profiler (`profiler record`, `profiler saveJSON`) is a
+> console command that writes a file. It cannot be driven from a script, and
+> nothing else exposes another resource's timing.
+
+The specification asks for resource timing. It cannot be had. The options were
+to estimate it, to omit the gate, or to measure the closest thing that is real
+and say plainly what is missing. Sentinel Forge does the third: a fabricated
+per-resource figure would corrupt every baseline and every regression comparison
+built on it, and nothing downstream could detect that it had.
+
+So **no per-resource timing exists anywhere in this build** — not in the
+collector, not in the database, not in a report, not in the dashboard that comes
+next — and the limitation is printed next to every piece of runtime output
+rather than filed in a manual.
+
+### Delivered
+
+| Area | What exists | Location |
+| --- | --- | --- |
+| Collector resource | Server-side FiveM resource measuring scheduler latency, resource state, state transitions and a player count. Three threads, bounded buffers, telemetry written with `SaveResourceFile` into its own directory in a bounded rotation. | `resources/sentinel_doctor/` |
+| Collector configuration | Seven server convars, all documented, all with quiet defaults. Nothing in the resource needs editing. | `resources/sentinel_doctor/server/config.lua` |
+| Telemetry location | Finds the collector under a resource directory or one category directory deep — the two documented FiveM layouts — without walking the server. | `packages/runtime/src/locate.ts` |
+| Telemetry parsing | Schema version checked, not assumed; non-finite samples discarded; absent fields left absent. | `packages/runtime/src/telemetry.ts` |
+| Idempotent ingestion | Each document identified by a digest over its measurements, recorded on import, skipped when seen again. Safe to run on a timer. | `packages/runtime/src/ingest.ts` |
+| Command | `sentinel runtime status` / `import` / `events`. | `apps/cli/src/commands/runtime.ts` |
+| Storage | Migration 3: `runtime_ingest_files` (what has been read) and `runtime_events` (what the server was observed to do), kept apart from the inferred `incidents` tables. | `database/migrations/0003_runtime_telemetry.sql` |
+| Samples → regression | Capturing a baseline claims the samples collected since the previous one, so `sentinel compare` compares two measurement windows. | `packages/performance/src/baseline.ts` |
+| Report | Optional `performance.runtime` section (schema 1.2) describing what was measured, separate from static analysis. | `packages/engine/src/scan.ts` |
+
+### Natives and events used, and what each was verified to provide
+
+| API | Used for | Verified against |
+| --- | --- | --- |
+| `GetGameTimer` | Monotonic milliseconds, for latency and uptime | Official shared native declaration |
+| `GetNumResources`, `GetResourceByFindIndex`, `GetResourceState` | Resource state sweep | Official shared native declarations |
+| `onResourceStart`, `onResourceStop` | State transitions, event-driven | Official server event documentation |
+| `GetNumPlayerIndices` | Player **count** only | Official server native declaration |
+| `GetConvar`, `GetConvarInt` | Configuration | Official server native declarations |
+| `SaveResourceFile`, `GetCurrentResourceName`, `GetResourceMetadata` | Writing telemetry inside its own resource | Official server native declarations |
+| `RegisterCommand`, `CreateThread`, `Wait`, `AddEventHandler` | Structure | Official runtime documentation |
+
+No undocumented API is called. No API is called speculatively behind a `pcall`
+to see whether it exists.
+
+### Overhead
+
+| Cost | How it is measured | Figure at the shipped defaults |
+| --- | --- | --- |
+| Disk, worst case (every buffer full at every flush) | `tests/performance/collector.test.ts` | 12.3 MiB across the 12-file rotation |
+| Disk, steady state | `tests/performance/collector.test.ts` | ~11 KiB per file, 120 samples per flush |
+| Importing a full worst-case rotation | `tests/performance/collector.test.ts` | ~0.5 s for 60,000 samples and 2,400 events |
+| Re-reading an already-imported rotation | `tests/performance/collector.test.ts` | ~0.1 s, nothing written |
+| **In-server CPU and tick cost** | **Not measured automatically** — it requires a running FiveM server, which no test here has. Manual procedure documented and run before each release. | See `resources/sentinel_doctor/README.md` |
+
+That last row is stated rather than filled with a plausible number. It is also
+asserted as a line of benchmark output, so a release manager reading the
+figures sees the gap next to them.
+
+### The collector is analysed by the product that ships it
+
+`tests/integration/collector-resource.test.ts` reads the collector's Lua with
+Sentinel Forge's own lexer and asserts, against the source rather than against
+the README: no network native, no `load`/`loadstring`/`dofile`, no command
+execution, no resource-state mutation, no player identity native beyond the
+count, writes only through `SaveResourceFile` into `GetCurrentResourceName()`,
+both buffers bounded, no metric name claiming to be CPU or tick time, no
+credential, and every convar it reads documented.
+
+A promise in a README is not a control.
+
+### Validation
+
+Run with Node.js 22.22.2 on Linux x64:
+
+| Check | Result |
+| --- | --- |
+| `npm run check:versions` | ✅ Pass — 0.6.0 across 14 packages |
+| `npm run check:migrations` | ✅ Pass — 3 migrations current |
+| `npm run lint` | ✅ Pass — 0 errors, 0 warnings |
+| `npm run typecheck` | ✅ Pass |
+| `npm run test:unit` | ✅ 538 tests |
+| `npm run test:integration` | ✅ 101 tests |
+| `npm run test:security` | ✅ 50 tests |
+| `npm run test:performance` | ✅ 16 tests |
+| Total | ✅ 705 tests, 73 files |
+
+### Known limitations of this build
+
+1. **No per-resource CPU or tick time.** FiveM exposes no scripting API for it.
+   This is permanent until Cfx.re provides one; it is not a missing feature.
+2. **Scheduler latency is measured from inside the collector's own thread.** It
+   says how promptly the server serviced that thread. It is a real property of
+   the server and a real proxy for hitching, but it does not identify which
+   resource made the server late.
+3. **The collector's in-server CPU cost is not measured by any automated test.**
+   Disk and ingestion costs are.
+4. **Telemetry arrives in batches.** The default flush interval is 60 seconds,
+   so the newest measurements are up to one interval old. There is no live feed.
+5. **Reliability is not scored.** FiveM exposes no scripting API through which
+   one resource can observe another's runtime errors. State transitions are
+   recorded and shown; they are not turned into a reliability score, because
+   that would be inference presented as measurement.
+6. **Regression detection needs samples on both sides.** A comparison between a
+   baseline with samples and one without reports that it was not compared,
+   rather than reporting no regression.
+7. **A resource stopping is recorded as a resource stopping.** Why it stopped is
+   not observable from a script, and is not inferred.
+
+### Readiness for GATE 6
+
+| Requirement | Ready |
+| --- | --- |
+| Measured data to display | ✅ `performance_samples`, `runtime_events` |
+| A report section describing it | ✅ `performance.runtime`, schema 1.2 |
+| A limitation to render beside it | ✅ `RUNTIME_SECTION_LIMITATION` |
+| Local-only storage, no network | ✅ Nothing in the product makes a network request |
 
 ## GATE 6 — Dashboard ⬜
 
-Not started. Local-first, bound to `127.0.0.1`.
+**Next gate.** Local-first, bound to `127.0.0.1`, read-only. It renders what the
+earlier gates produced and adds no analysis of its own; anything it shows that
+was not measured must say so, exactly as the CLI does.
 
 ## GATE 7 — MCP interface ⬜
 

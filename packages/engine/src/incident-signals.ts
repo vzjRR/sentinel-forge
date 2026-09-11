@@ -6,7 +6,7 @@
  * times, alongside the effects observed at the later one.
  *
  * The timestamps used are the baselines' own capture times. That is coarser
- * than runtime telemetry (GATE 5) and the wording downstream reflects it: these
+ * than runtime telemetry, and the wording downstream reflects it: these
  * observations are related in a window, not at an instant.
  */
 

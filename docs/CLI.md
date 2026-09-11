@@ -27,6 +27,7 @@ says so explicitly and names the gate that delivers it.
 | `sentinel incidents` | List correlated incidents and their timelines. |
 | `sentinel security` | Show security indicators with evidence and confidence. |
 | `sentinel integrity <snapshot\|list\|compare\|delete>` | File integrity snapshots and comparison. |
+| `sentinel runtime <status\|import\|events>` | Import and inspect telemetry measured by the in-server collector. |
 | `sentinel purge [retention\|all]` | Delete locally stored data. Dry run unless `--confirm`. |
 | `sentinel doctor` | Check that this environment can run Sentinel Forge. |
 | `sentinel version` | Print product, report schema and database schema versions. |
@@ -212,9 +213,10 @@ Capped: A high-confidence HIGH finding caps the score at 75: Declared dependency
   CONFIGURATION  100/100  ############  0 finding(s)
 
 Not scored:
-  SECURITY       Security analysis is NOT IMPLEMENTED in this build (GATE 4).
-  INTEGRITY      Integrity tracking is NOT IMPLEMENTED in this build (GATE 4).
-  RELIABILITY    Runtime error data is NOT IMPLEMENTED in this build (GATE 5).
+  RELIABILITY    Reliability is not scored: FiveM exposes no scripting API for
+                 runtime errors, so none are collected. Resource state
+                 transitions the collector observed are shown by
+                 `sentinel runtime events`.
 ```
 
 Every deduction names the finding that caused it, and the deductions in a
@@ -263,10 +265,15 @@ Incidents:
 A baseline records resource content hashes, the configuration fingerprint, the
 findings that stood and the health score.
 
-**Performance samples are recorded only if something collected them.** No
-runtime collector exists before GATE 6, so a baseline taken by this build
-reports zero samples, and `compare` states that performance was not compared
-rather than implying that no regression was found.
+**Performance samples are recorded only if something collected them.** They come
+from the `sentinel_doctor` collector by way of `sentinel runtime import`, and a
+baseline claims the samples collected since the previous one — which is what
+makes the two sides of a comparison two measurement windows rather than two
+arbitrary slices of history.
+
+On a server with no collector installed, a baseline reports zero samples, and
+`compare` states that performance was not compared rather than implying that no
+regression was found.
 
 ### Regression detection
 
@@ -293,6 +300,65 @@ sentinel incidents
 An incident groups changes and effects observed in the same window, with a
 timeline, the resources involved and a confidence that they are related.
 Confidence is capped at 0.85: **an incident never names a cause.**
+
+## Runtime telemetry
+
+```bash
+sentinel runtime status     # is the collector installed, and what has it written?
+sentinel runtime import     # read its telemetry into the local database
+sentinel runtime events     # resource state transitions it observed
+```
+
+`sentinel_doctor` is a small server-side FiveM resource shipped in
+`resources/sentinel_doctor`. Copy it into the server's resources directory, add
+`ensure sentinel_doctor` to `server.cfg`, and it begins measuring. It writes
+telemetry into its own directory; nothing is sent anywhere.
+
+### What is measured
+
+| Signal | How |
+| --- | --- |
+| Scheduler latency | How much later than requested the collector's thread was serviced. |
+| Resource state | Swept periodically, and on every start and stop. |
+| Resource transitions | Event-driven, from `onResourceStart` and `onResourceStop`. |
+| Player count | A count only. |
+
+### What is not measured
+
+**Per-resource CPU and tick time.** FiveM exposes no scripting API for it: the
+official profiler is a console command that writes a file and cannot be driven
+from a script. Sentinel Forge therefore reports no per-resource timing anywhere.
+A fabricated number would corrupt every baseline and regression comparison built
+on it, which is worse than reporting nothing.
+
+Scheduler latency is the closest honest alternative. It is a real property of
+the server, measured from inside it, and it moves for the same reasons an
+operator experiences hitching — but it does not identify which resource made the
+server late.
+
+### Importing
+
+`sentinel runtime import` is safe to run on a timer. The collector writes into a
+fixed rotation of file names, so the same measurements are on disk across
+several imports; each document is identified by a digest over its measurements
+and imported once.
+
+The server must have been scanned at least once (`sentinel scan`) before
+telemetry can be imported: samples belong to a server, and a server is
+identified by a scan. Importing for an unscanned server exits `2` and says so.
+
+A corrupt or unreadable telemetry file is reported by name and skipped — the
+files either side of it are still imported. Telemetry written by a newer
+collector than this build understands is refused rather than guessed at.
+
+Anything the collector had to drop because a buffer was full is reported as a
+drop. A gap in the data is shown as a gap, never as a quiet period.
+
+### Privacy
+
+The collector records a player **count** and nothing else about players. No
+identifier, name, endpoint, position or action is read or stored, by the
+collector or by anything downstream of it.
 
 ## Purge
 
@@ -370,6 +436,14 @@ A file whose modification time changed but whose content did not is reported as
 bury the changes that matter.
 
 **Files are never quarantined, moved, modified or deleted.**
+
+If the `sentinel_doctor` collector is installed, the telemetry files it writes
+appear in every snapshot and change between them — that is what a rotating
+telemetry directory is. They are **not** excluded from integrity tracking:
+hiding a directory from the integrity check because its contents are expected to
+change is exactly the hole an attacker would want. Expect
+`resources/sentinel_doctor/telemetry/*.json` among the modified files, and read
+the rest of the list.
 
 ## Resource detail
 

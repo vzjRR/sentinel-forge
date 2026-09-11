@@ -9,10 +9,12 @@
  * The point of recording it is the next question — "what changed?" — which is
  * the one an operator actually asks when something starts going wrong.
  *
- * **Performance samples are only present if something collected them.** No
- * runtime collector exists before GATE 5, so a baseline taken by this build
- * records zero samples and says so. It does not estimate timing from static
- * analysis: an invented number would make every later comparison meaningless.
+ * **Performance samples are only present if something collected them.** From
+ * the `sentinel_doctor` collector, the collector supplies them, and a baseline claims
+ * the samples collected since the previous one. On a server with no collector
+ * installed, a baseline records zero samples and says so: timing is never
+ * estimated from static analysis, because an invented number would make every
+ * later comparison meaningless.
  */
 
 import { fingerprint, hashString, type DatabaseDriver } from '@sentinel-forge/core';
@@ -72,22 +74,37 @@ export function hashConfiguration(source: string): string {
   return hashString(source);
 }
 
+/**
+ * Claims every sample collected since the previous baseline.
+ *
+ * A sample arrives from the runtime collector with no baseline attached,
+ * because at collection time there was no baseline to attach it to. Capturing a
+ * baseline closes that window: the samples collected up to this moment, and not
+ * already claimed, are the measurements of the period this baseline describes.
+ *
+ * That rule is what makes `sentinel compare` meaningful on measured data —
+ * "the latency before the change" and "the latency after it" are the two
+ * windows either side of a baseline, not an arbitrary slice of history.
+ *
+ * @returns the number of samples claimed.
+ */
+export function attachUnassignedSamples(
+  driver: DatabaseDriver,
+  serverId: string,
+  baselineId: string,
+  capturedAt: string,
+): number {
+  return driver
+    .prepare(
+      `UPDATE performance_samples SET baseline_id = ?
+       WHERE server_id = ? AND baseline_id IS NULL AND sampled_at <= ?`,
+    )
+    .run(baselineId, serverId, capturedAt).changes;
+}
+
 /** Writes a baseline and its detail rows in one transaction. */
 export function captureBaseline(driver: DatabaseDriver, input: CaptureBaselineInput): BaselineRecord {
-  const record: BaselineRecord = {
-    id: input.id,
-    serverId: input.serverId,
-    label: input.label,
-    serverFingerprint: input.serverFingerprint,
-    ...(input.configFingerprint === undefined ? {} : { configFingerprint: input.configFingerprint }),
-    resourceCount: input.resources.length,
-    findingCount: input.findings.length,
-    ...(input.health === undefined ? {} : { healthScore: input.health.score }),
-    // Samples are counted, never estimated. Zero means none were collected.
-    sampleCount: countSamples(driver, input.serverId),
-    ...(input.notes === undefined ? {} : { notes: input.notes }),
-    createdAt: input.createdAt,
-  };
+  let sampleCount = 0;
 
   driver.transaction(() => {
     driver
@@ -97,19 +114,25 @@ export function captureBaseline(driver: DatabaseDriver, input: CaptureBaselineIn
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
-        record.id,
-        record.serverId,
-        record.label,
-        record.serverFingerprint,
-        record.configFingerprint ?? null,
-        record.resourceCount,
-        record.playerCount ?? null,
-        record.sampleCount,
-        record.notes ?? null,
-        record.createdAt,
-        record.healthScore ?? null,
-        record.findingCount,
+        input.id,
+        input.serverId,
+        input.label,
+        input.serverFingerprint,
+        input.configFingerprint ?? null,
+        input.resources.length,
+        null,
+        sampleCount,
+        input.notes ?? null,
+        input.createdAt,
+        input.health?.score ?? null,
+        input.findings.length,
       );
+
+    // Samples are claimed after the row exists — they reference it — and the
+    // count is written back, so what the baseline reports is the number of
+    // samples it actually owns rather than everything ever collected.
+    sampleCount = attachUnassignedSamples(driver, input.serverId, input.id, input.createdAt);
+    driver.prepare('UPDATE baselines SET sample_count = ? WHERE id = ?').run(sampleCount, input.id);
 
     const resourceStatement = driver.prepare(
       `INSERT INTO baseline_resources (baseline_id, resource_name, path, version, file_count, total_bytes, content_hash)
@@ -117,7 +140,7 @@ export function captureBaseline(driver: DatabaseDriver, input: CaptureBaselineIn
     );
     for (const resource of input.resources) {
       resourceStatement.run(
-        record.id,
+        input.id,
         resource.resource,
         resource.path,
         resource.version ?? null,
@@ -133,7 +156,7 @@ export function captureBaseline(driver: DatabaseDriver, input: CaptureBaselineIn
     );
     for (const finding of input.findings) {
       findingStatement.run(
-        record.id,
+        input.id,
         finding.id,
         finding.ruleId,
         finding.severity,
@@ -146,14 +169,20 @@ export function captureBaseline(driver: DatabaseDriver, input: CaptureBaselineIn
     }
   });
 
-  return record;
-}
-
-function countSamples(driver: DatabaseDriver, serverId: string): number {
-  const row = driver
-    .prepare('SELECT COUNT(*) AS count FROM performance_samples WHERE server_id = ?')
-    .get<{ count: number }>(serverId);
-  return row?.count ?? 0;
+  return {
+    id: input.id,
+    serverId: input.serverId,
+    label: input.label,
+    serverFingerprint: input.serverFingerprint,
+    ...(input.configFingerprint === undefined ? {} : { configFingerprint: input.configFingerprint }),
+    resourceCount: input.resources.length,
+    findingCount: input.findings.length,
+    ...(input.health === undefined ? {} : { healthScore: input.health.score }),
+    // Samples are counted, never estimated. Zero means none were collected.
+    sampleCount,
+    ...(input.notes === undefined ? {} : { notes: input.notes }),
+    createdAt: input.createdAt,
+  };
 }
 
 interface BaselineRow {
@@ -277,7 +306,7 @@ export function deleteBaseline(driver: DatabaseDriver, serverId: string, label: 
   return result.changes > 0;
 }
 
-/** Records measured performance samples. Used by the runtime collector (GATE 5). */
+/** Records measured performance samples, as imported from the runtime collector. */
 export interface PerformanceSampleInput {
   readonly serverId: string;
   readonly baselineId?: string;

@@ -2,7 +2,8 @@
  * Server and resource description contracts.
  *
  * These describe what was *discovered on disk*. Runtime state is a separate
- * concern (GATE 5) and is never inferred from a static scan.
+ * concern — measured by the `sentinel_doctor` collector — and is never
+ * inferred from a static scan.
  */
 
 export interface ServerFingerprint {

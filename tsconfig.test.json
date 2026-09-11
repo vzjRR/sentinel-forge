@@ -44,6 +44,9 @@
       "@sentinel-forge/integrity": [
         "packages/integrity/src/index.ts"
       ],
+      "@sentinel-forge/runtime": [
+        "packages/runtime/src/index.ts"
+      ],
       "@sentinel-forge/engine": [
         "packages/engine/src/index.ts"
       ],

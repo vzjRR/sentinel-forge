@@ -45,7 +45,8 @@ describe('baseline lifecycle', () => {
     expect(payload.baseline.label).toBe('before');
     expect(payload.baseline.resourceCount).toBe(2);
     expect(payload.baseline.healthScore).toBe(100);
-    // No collector exists yet, so the honest sample count is zero.
+    // No collector is installed on this fixture server, so the honest sample
+    // count is zero. It is never estimated from static analysis.
     expect(payload.baseline.sampleCount).toBe(0);
   });
 
@@ -114,7 +115,8 @@ describe('baseline lifecycle', () => {
     const result = await runCli(['compare', 'before', 'after', '--json'], workspace);
     const payload = parseJsonOutput<{ performance: { compared: boolean; reason: string } }>(result);
     expect(payload.performance.compared).toBe(false);
-    expect(payload.performance.reason).toContain('runtime collector');
+    expect(payload.performance.reason).toContain('sentinel_doctor collector');
+    expect(payload.performance.reason).toContain('sentinel runtime import');
   });
 
   it('lists the incident it recorded', async () => {

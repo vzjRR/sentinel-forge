@@ -37,7 +37,7 @@ by, or sponsored by Rockstar Games, Cfx.re, the FiveM project, or txAdmin.
 
 ## Current status
 
-**GATE 4 — Security and integrity. Complete.**
+**GATE 5 — Runtime collector. Complete.**
 
 Sentinel Forge scans a FiveM server, diagnoses it, and tracks it over time. It
 parses manifests and scripts without executing them, resolves the dependency
@@ -45,6 +45,12 @@ graph, analyses loops, events and database access, detects security indicators,
 tracks file integrity, produces an explainable health score, and — the part it
 exists for — compares two points in time to answer *what changed, and what
 followed*.
+
+It now also measures the running server. `sentinel_doctor` is a small
+server-side FiveM resource that records scheduler latency, resource state and
+state transitions, and writes them to its own directory; `sentinel runtime
+import` reads them into the local database, where they feed the same regression
+engine that has been waiting for them.
 
 Commands that belong to a later gate are present in the CLI and report
 `NOT IMPLEMENTED` with the gate that delivers them — they never return an empty
@@ -54,11 +60,11 @@ See [`docs/GATE_STATUS.md`](docs/GATE_STATUS.md) for exactly what exists today.
 
 Every command in the product specification is implemented:
 `scan`, `health`, `resource`, `dependencies`, `baseline`, `compare`,
-`incidents`, `security`, `integrity`, `report`, `purge`, `init`, `doctor`,
-`version`, `help`.
+`incidents`, `security`, `integrity`, `runtime`, `report`, `purge`, `init`,
+`doctor`, `version`, `help`.
 
-Still to come: the in-server runtime collector (GATE 5), the local dashboard
-(GATE 6) and the read-only MCP interface (GATE 7).
+Still to come: the local dashboard (GATE 6) and the read-only MCP interface
+(GATE 7).
 
 Sixteen rules are implemented and run against every scan:
 
@@ -127,9 +133,28 @@ Incidents:
            → Inspect what changed in sf_core during this window.
 ```
 
-Timing measurement needs the runtime collector (GATE 5). Until then a baseline
-records zero performance samples and says so — it never estimates a number it
-did not measure.
+### Measuring the running server
+
+```bash
+# copy resources/sentinel_doctor into the server, then `ensure sentinel_doctor`
+sentinel runtime status     # installed? writing? what has been imported?
+sentinel runtime import     # read its telemetry into the local database
+sentinel runtime events     # resource state transitions it observed
+```
+
+Imported samples are claimed by the next baseline you capture, so
+`sentinel compare` compares two measurement windows rather than two arbitrary
+slices of history.
+
+**What the collector cannot measure:** per-resource CPU or tick time. FiveM
+exposes no scripting API for it — the official profiler is a console command
+that cannot be driven from a script — so Sentinel Forge reports none. What it
+measures instead is scheduler latency: how late the server serviced a thread,
+which is the same phenomenon an operator experiences as hitching, and is a real
+property of the server rather than an estimate of one.
+
+On a server with no collector installed, a baseline records zero performance
+samples and says so. It never estimates a number it did not measure.
 
 ## Requirements
 
@@ -214,8 +239,8 @@ packages/performance  Baselines, statistics, regression detection
 packages/incidents    Change correlation and incident timelines
 packages/security     Secret, obfuscation and execution indicators
 packages/integrity    File integrity snapshots and comparison
-packages/runtime      Runtime telemetry ingestion  (GATE 5)
-resources/sentinel_doctor  In-server collector     (GATE 5)
+packages/runtime      Runtime telemetry ingestion
+resources/sentinel_doctor  In-server collector
 database/migrations   SQL schema, forward-only
 tests/                Unit, integration, security and performance suites
 docs/                 Documentation

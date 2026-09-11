@@ -18,6 +18,10 @@ sentinel.db-journal
 sentinel.db-wal
 sentinel.db-shm
 sentinel-report.*
+
+# Telemetry written by the collector if it is ever run from this checkout.
+# It describes a real server; it never belongs in the repository.
+resources/sentinel_doctor/telemetry/
 *.sentinel-baseline.json
 
 # Local configuration and secrets (never commit)

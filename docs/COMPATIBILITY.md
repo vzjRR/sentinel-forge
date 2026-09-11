@@ -44,9 +44,10 @@ Path handling is platform-aware by construction, but "written for it" is not
 
 ## FiveM
 
-GATE 1 delivers static analysis of a server directory. There is still **no
-runtime integration**: no FiveM API is called anywhere in the product, and
-nothing is collected from a running server.
+Static analysis reads a server directory. Runtime data comes from one optional
+server-side resource, `sentinel_doctor`, which the operator installs
+themselves — the CLI itself still calls no FiveM API and makes no connection to
+a server.
 
 The manifest and configuration behaviour below was verified against official
 Cfx.re documentation and the official server data repository. Facts taken from
@@ -87,6 +88,34 @@ those sources are cited; nothing in this table is inferred.
 | Multiple resource roots | Configurable via `server.resourceDirectories`. |
 | Symlinked resource directories | Not followed by default; opt-in via `scan.followSymlinks`. |
 
+## FiveM runtime API
+
+Every native and event the `sentinel_doctor` collector uses was verified against
+the official declarations in
+[`citizenfx/fivem`](https://github.com/citizenfx/fivem/tree/master/ext/native-decls)
+and [docs.fivem.net](https://docs.fivem.net/) before it was used. Nothing is
+called speculatively.
+
+| API | Used for | Availability |
+| --- | --- | --- |
+| `GetGameTimer` | Monotonic milliseconds | Shared native |
+| `GetNumResources`, `GetResourceByFindIndex`, `GetResourceState` | Resource state sweep | Shared natives |
+| `onResourceStart`, `onResourceStop` | State transitions | Server events |
+| `GetNumPlayerIndices` | Player count only | Server native |
+| `GetConvar`, `GetConvarInt` | Configuration | Server natives |
+| `SaveResourceFile`, `GetCurrentResourceName`, `GetResourceMetadata` | Writing telemetry into its own resource | Server natives |
+
+### Not available, and therefore not reported
+
+| Wanted | Status |
+| --- | --- |
+| Per-resource CPU or tick time | **No scripting API exists.** The official profiler (`profiler record`, `profiler saveJSON`) is a console command that writes a file; it cannot be driven from a script, and no native exposes another resource's timing. Sentinel Forge reports none rather than estimating. |
+| Runtime errors raised inside another resource | **No scripting API exists.** This is why the `RELIABILITY` health category is unscored. |
+| Memory use per resource | **No scripting API exists** on the server for another resource's memory. |
+
+If Cfx.re adds an API for any of these, the collector gains it and the
+limitation is removed from this table. Until then the gap is stated, not filled.
+
 ## Database
 
 - SQLite through `node:sqlite`, local file, WAL mode for file databases.
@@ -97,7 +126,9 @@ those sources are cited; nothing in this table is inferred.
 
 ## Known limitations
 
-1. Static analysis only. No runtime data is collected (GATE 5).
+1. Runtime data requires the operator to install `sentinel_doctor`. Without it,
+   analysis is static only, and every report says so rather than implying that
+   nothing was wrong.
 2. Windows and macOS are untested.
 3. `node:sqlite` is experimental upstream.
 4. Traversal does not follow symlinks by default; servers that rely on

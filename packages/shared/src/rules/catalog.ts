@@ -197,15 +197,18 @@ const ENTRIES: readonly RuleCatalogEntry[] = Object.freeze([
     id: 'PERF-REGRESSION-001',
     category: 'PERFORMANCE',
     defaultSeverity: 'HIGH',
-    title: 'Resource timing regression against baseline',
+    title: 'Measured timing regression against baseline',
     description:
-      'Detects a statistically meaningful increase in resource tick time compared with a recorded baseline.',
+      'Detects a statistically meaningful increase in a measured runtime metric compared with a recorded baseline. ' +
+      'The metric measured is scheduler latency, attributed to the server: FiveM exposes no scripting API for ' +
+      'per-resource CPU or tick time, so no per-resource timing is collected or compared.',
     rationale:
-      'A regression identifies which resource changed behaviour, and when, which is the fastest route to a root cause.',
+      'A regression says when the server started responding more slowly, and how much, which is where a root-cause investigation starts.',
     falsePositives: [
       'Large relative increases on very small absolute values.',
       'Player-count differences between the baseline and the comparison window.',
       'Insufficient sample counts on either side of the comparison.',
+      'A server restarted mid-window: latency shortly after start is not comparable with steady state.',
     ],
     evidenceRequirements: ['MEASUREMENT with baseline value, current value and sample counts'],
     status: 'IMPLEMENTED',

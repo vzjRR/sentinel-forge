@@ -51,6 +51,35 @@ export interface PerformanceReportSection {
   readonly regressions: readonly string[];
   /** Present only when timing data was actually collected. */
   readonly collected: boolean;
+  /** What the in-server collector has measured, when it is installed. */
+  readonly runtime?: RuntimeReportSection;
+}
+
+/**
+ * What the in-server collector observed.
+ *
+ * Reported separately from static analysis, and never merged into it: a
+ * measured value and an inferred one are different kinds of claim, and a reader
+ * has to be able to tell which they are looking at.
+ */
+export interface RuntimeReportSection {
+  readonly collectorInstalled: boolean;
+  /** Telemetry documents found on disk at scan time. */
+  readonly documentCount: number;
+  readonly sampleCount: number;
+  readonly eventCount: number;
+  /** Metric names actually present. Empty when nothing has been measured. */
+  readonly metrics: readonly string[];
+  /** Resources the collector observed a state transition for. */
+  readonly resourcesObserved: readonly string[];
+  readonly earliest?: string;
+  readonly latest?: string;
+  /** What the collector reported dropping because a buffer was full. */
+  readonly dropped: { readonly samples: number; readonly events: number };
+  /** Telemetry files that could not be read, with the reason for each. */
+  readonly unreadable: readonly { readonly file: string; readonly reason: string }[];
+  /** Verbatim limitation text, always rendered next to runtime output. */
+  readonly limitation: string;
 }
 
 export interface SecurityReportSection {
@@ -143,3 +172,15 @@ export const BASE_LIMITATIONS: readonly string[] = Object.freeze([
 
 export const SECURITY_SECTION_LIMITATION =
   'Security findings are indicators and do not guarantee malware detection. Each finding requires manual verification.';
+
+/**
+ * Limitation text rendered next to every piece of runtime output.
+ *
+ * It states the boundary of what the in-server collector can observe. FiveM
+ * exposes no scripting API for another resource's CPU or tick time, so none is
+ * collected and none is reported — and an operator reading a latency figure
+ * needs to know that at the moment they read it, not from a manual.
+ */
+export const RUNTIME_SECTION_LIMITATION =
+  'Runtime data is limited to what the server exposes to a script: scheduler latency, resource state and a player count. ' +
+  'FiveM provides no scripting API for per-resource CPU or tick time, so no per-resource timing is collected or reported.';
