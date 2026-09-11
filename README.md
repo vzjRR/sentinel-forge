@@ -304,6 +304,7 @@ docs/                 Documentation
 | [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) | What has actually been tested. |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Common problems and their causes. |
 | [docs/GATE_STATUS.md](docs/GATE_STATUS.md) | Delivery status, gate by gate. |
+| [docs/FIRST_RUN.md](docs/FIRST_RUN.md) | Running it against a real server for the first time, and what is expected to break. |
 | [docs/RELEASE.md](docs/RELEASE.md) | Versioning, rule stability, release checklist. |
 | [docs/LICENSING.md](docs/LICENSING.md) | Ownership and licence terms in plain language. |
 | [docs/MCP.md](docs/MCP.md) | Planned read-only MCP interface. |
