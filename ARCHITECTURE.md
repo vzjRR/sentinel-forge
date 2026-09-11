@@ -49,8 +49,8 @@ of *what changes together*, not by technical layer.
 | `@sentinel-forge/engine` | The scan pipeline: composes discovery, analysis, scoring and storage. | 2 ✅ |
 | `@sentinel-forge/performance` | Baselines, sample statistics, comparison, regression detection. | 3 ✅ |
 | `@sentinel-forge/incidents` | Change correlation and incident timelines. | 3 ✅ |
-| `@sentinel-forge/security` | Secret scanning, obfuscation and remote-load indicators. | 4 |
-| `@sentinel-forge/integrity` | Integrity snapshots and comparison. | 4 |
+| `@sentinel-forge/security` | Secret, obfuscation, execution and suspicious-file indicators. | 4 ✅ |
+| `@sentinel-forge/integrity` | Integrity snapshots and comparison. | 4 ✅ |
 | `@sentinel-forge/runtime` | Ingestion of telemetry from the in-server collector. | 5 |
 
 Dependencies flow one way: `shared` and `lua` ← `core` ← the analysis packages
@@ -250,6 +250,32 @@ Entropy-based redaction removes hashes, resource identifiers and asset ids,
 which are exactly the diagnostic content a report exists to carry. Detecting
 unknown-format secrets is the job of the secret scanner (SEC-SECRET-001,
 GATE 4), which reports a location rather than a value.
+
+## 8a. Finding a secret without carrying it
+
+Sentinel Forge detects credentials in files it does not own. The most damaging
+defect it could have is copying one of those values somewhere else, so detection
+is built so that the value cannot escape:
+
+- a detector returns a **location, a type, a redacted excerpt and a masked
+  value**. The raw value is used to judge whether it looks live, and then
+  dropped;
+- the database column that holds an excerpt is named `redacted_excerpt`, and a
+  test asserts that naming for every excerpt column in every migration;
+- a security test extracts every credential planted in the fixture and asserts
+  none of them appears in command output, `--json` output, verbose logs, JSON or
+  Markdown reports, any table of the local database, a baseline, or an integrity
+  snapshot — while asserting the finding still reports the file and line.
+
+Detection is by known credential format rather than by entropy. Entropy-first
+detection flags hashes, asset identifiers and UUIDs, which are precisely the
+diagnostic content a report exists to carry; entropy is used only as a secondary
+signal on values that already matched a credential shape.
+
+Where patterns overlap — a Discord webhook is also a generic webhook — the more
+*specific* match wins, not the more confident one. Ranking by confidence keeps
+the generic classification exactly when the specific pattern found evidence that
+the value is a placeholder, which is the opposite of useful.
 
 ## 9. Configuration
 

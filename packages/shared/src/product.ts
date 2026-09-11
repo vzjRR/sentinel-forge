@@ -14,7 +14,7 @@ export const PRODUCT_COPYRIGHT = '© 2026 Talal Al Ghafri. All Rights Reserved.'
  * Product version. Semantic Versioning (see docs/RELEASE.md).
  * Kept in sync with the root package.json version by `scripts/check-versions.mjs`.
  */
-export const PRODUCT_VERSION = '0.4.0';
+export const PRODUCT_VERSION = '0.5.0';
 
 /**
  * Report envelope schema version. Independent of PRODUCT_VERSION.

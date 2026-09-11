@@ -1,6 +1,6 @@
 {
   "name": "@sentinel-forge/cli",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "description": "Sentinel Forge command line interface.",
   "license": "SEE LICENSE IN LICENSE",
@@ -17,13 +17,14 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "@sentinel-forge/core": "0.4.0",
-    "@sentinel-forge/dependencies": "0.4.0",
-    "@sentinel-forge/engine": "0.4.0",
-    "@sentinel-forge/incidents": "0.4.0",
-    "@sentinel-forge/performance": "0.4.0",
-    "@sentinel-forge/reports": "0.4.0",
-    "@sentinel-forge/scanner": "0.4.0",
-    "@sentinel-forge/shared": "0.4.0"
+    "@sentinel-forge/core": "0.5.0",
+    "@sentinel-forge/dependencies": "0.5.0",
+    "@sentinel-forge/engine": "0.5.0",
+    "@sentinel-forge/incidents": "0.5.0",
+    "@sentinel-forge/integrity": "0.5.0",
+    "@sentinel-forge/performance": "0.5.0",
+    "@sentinel-forge/reports": "0.5.0",
+    "@sentinel-forge/scanner": "0.5.0",
+    "@sentinel-forge/shared": "0.5.0"
   }
 }

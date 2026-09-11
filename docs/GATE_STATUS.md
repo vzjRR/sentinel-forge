@@ -6,7 +6,7 @@ The authoritative record of what exists in this build. Anything not listed as
 delivered does not exist, however completely it may be described elsewhere in
 the documentation.
 
-**Current build: 0.4.0 — GATE 3 complete.**
+**Current build: 0.5.0 — GATE 4 complete.**
 
 | Gate | Scope | Status |
 | --- | --- | --- |
@@ -14,7 +14,7 @@ the documentation.
 | 1 | Static scanner | ✅ Complete |
 | 2 | Diagnostic engine | ✅ Complete |
 | 3 | Performance intelligence | ✅ Complete |
-| 4 | Security and integrity | ⬜ Not started |
+| 4 | Security and integrity | ✅ Complete |
 | 5 | Runtime resource | ⬜ Not started |
 | 6 | Dashboard | ⬜ Not started |
 | 7 | MCP interface | ⬜ Not started |
@@ -410,25 +410,149 @@ Confidence from recorded samples is capped at 0.9, and correlation confidence at
 | A fixture with planted indicators | ✅ `security-indicators`, with fictional placeholders |
 | Lua analysis to build detection on | ✅ Calls, strings and structure from GATE 2 |
 
-## GATE 4 — Security and integrity ⬜
+## GATE 4 — Security and integrity ✅
 
-**Next gate.** Secret scanning with redaction, obfuscation indicators,
-remote-load detection, dynamic execution detection, suspicious file detection,
-integrity snapshots and comparison.
+### Delivered
 
-Rules `SEC-SECRET-001`, `SEC-WEBHOOK-001`, `SEC-OBFUSCATION-001`,
-`SEC-REMOTE-LOAD-001`, `SEC-DYNAMIC-EXEC-001`, `SEC-SUSPICIOUS-FILE-001`,
-`INT-CHANGE-001`. Commands `security`, `integrity`.
+| Area | What exists | Location |
+| --- | --- | --- |
+| Secret detection | Ten credential formats — Discord webhooks and bot tokens, generic webhooks, PEM private keys, JWTs, URI credentials, authorization headers, API keys, passwords, licence keys — with placeholder and entropy adjustments, and overlap resolved by pattern specificity. | `packages/security/src/secrets.ts` |
+| Obfuscation indicators | Encoded-literal density, decode chains feeding a loader, character reconstruction, escaped-literal density, long generated lines, opaque identifiers — weighted so one weak signal never reports on its own. | `packages/security/src/obfuscation.ts` |
+| Execution indicators | Remote fetch paired with a code loader (grouped per fetch), dynamic execution of non-literal input, and writes to executable paths. | `packages/security/src/execution.ts` |
+| Suspicious files | Executables, host scripts, archives, native modules and database files, each with a confidence that reflects how often it is legitimate. | `packages/security/src/files.ts` |
+| Integrity snapshots | Every file with size, content hash, modification time and type, plus a snapshot hash for cheap equality. | `packages/integrity/src/snapshot.ts` |
+| Integrity comparison | Added, modified and deleted files, with **touched** (identical content, new timestamp) reported separately so it cannot be mistaken for a change. | `packages/integrity/src/compare.ts` |
+| Commands | `security`, `integrity <snapshot\|list\|compare\|delete>`. | `apps/cli/src/commands` |
 
-Exit criteria: every indicator in the `security-indicators` fixture is detected;
-**no raw secret value appears anywhere in output**; obfuscation is reported as an
-indicator requiring review rather than as malice; integrity comparison reports
-added, modified and deleted files between two snapshots.
+### The constraint this gate was built around
+
+**Sentinel Forge finds credentials without ever reproducing one.** A detector
+returns a location, a type, a redacted excerpt and a masked value; the raw value
+is used to judge confidence and then dropped.
+
+`tests/security/secret-disclosure.test.ts` enforces this end to end. It extracts
+every credential-shaped value planted in the fixture and asserts that none
+appears in the security command's stdout, its `--json` output, its verbose log,
+a JSON report, a Markdown report, **any table of the local database**, a
+baseline, or an integrity snapshot — while still asserting that each finding
+reports the file and line, so it stays actionable.
+
+A companion test guards against the assertion going vacuous: it checks that the
+fixture really does contain credentials and that the detector really does find
+them, including at least one at confidence ≥ 0.8.
+
+### Wording as a tested property
+
+Security findings are indicators. Three properties are asserted, not merely
+intended:
+
+- the standing limitation prints with every `sentinel security` run, and is
+  carried in the report's security section and its limitations list;
+- output never contains *malicious*, *backdoor*, *malware detected* or
+  *compromised*;
+- obfuscation is described as blocking review and explicitly "not in itself
+  evidence of wrongdoing", because commercial resources are routinely obfuscated
+  for licence protection.
+
+### Fixture design, and a lesson from it
+
+Testing a credential detector needs both paths: values that are obviously
+placeholders, and values shaped like live credentials.
+
+- **`security-indicators/sf_suspicious`** is committed and uses values
+  explicitly marked as examples. The detector correctly downgrades them to
+  0.25–0.45 confidence — that downgrade is itself under test, since a real
+  server's example configuration is the most common source of false positives.
+- **Realistically shaped values are generated at test time**, by
+  `tests/helpers/fabricated-credentials.ts`, and never committed.
+
+The second point was learned the hard way. Realistic values were first committed
+as a fixture resource, and **GitHub push protection rejected the push**: one
+fabricated string matched a vendor's published API-key format. The scanner was
+right to block it. A repository that contains strings a secret scanner reads as
+live trips protection, alarms reviewers, and contradicts this product's own
+commitment that no secret is committed — so the values are now assembled from
+fragments at runtime. The detector sees identical input; the repository contains
+nothing that reads as a credential.
+
+### Validation
+
+| Check | Result |
+| --- | --- |
+| `npm run check:versions` | ✅ Pass |
+| `npm run check:migrations` | ✅ Pass |
+| `npm run lint` | ✅ Pass — 0 errors, 0 warnings |
+| `npm run typecheck` | ✅ Pass |
+| `npm run build` | ✅ Pass |
+| `npm test` | ✅ 636 tests, 68 files |
+
+### Exit criteria
+
+| Criterion | Met |
+| --- | --- |
+| Every indicator in the fixture is detected | ✅ Five rules asserted end to end |
+| No raw secret appears anywhere in output | ✅ Asserted across six output paths including the database |
+| Obfuscation is reported as requiring review, not as malice | ✅ Asserted against the wording |
+| Integrity comparison reports added, modified and deleted | ✅ Asserted against the fixture's declared change |
+| The healthy fixture reports no security indicators | ✅ Asserted |
+| Files are never acted on | ✅ Asserted that the tracked tree is byte-identical after a full lifecycle |
+
+### Defects found and fixed in this gate
+
+- **The rule catalog was wrong.** Three GATE 2 rules and one GATE 3 rule were
+  running while still catalogued as `NOT_IMPLEMENTED`, so `sentinel help rules`
+  under-reported the product. A test now derives the emitted rule ids from
+  source and asserts the catalog matches in both directions.
+- **Overlap resolution preferred the wrong match.** Deduplication ranked by
+  confidence, which kept a generic classification over a specific one precisely
+  when the specific pattern had found evidence that the value was a placeholder.
+  It now ranks by specificity first.
+- **A zero-entropy value scored too high.** A 22-character all-zeros token is
+  definitionally not live; low character variety now carries a real penalty.
+- **The repository's own credential check was imprecise.** Under a
+  case-insensitive flag its mixed-case test matched any two letters, so a label
+  map entry (`PASSWORD: 'password'`) read as a committed secret. The check now
+  requires a digit, a symbol or substantial length, and has its own test
+  asserting it flags realistic credentials and not labels.
+
+### Known limitations of this build
+
+1. **Detection is by known format.** A credential in an unknown format is not
+   detected; entropy is a secondary signal only, because entropy-first detection
+   flags hashes and asset identifiers.
+2. **Obfuscation detection is density-based.** A lightly transformed file may
+   score below the reporting threshold.
+3. **Remote-load pairing is proximity-based.** A fetch whose result reaches a
+   loader more than 60 lines away, or through a variable across functions, is
+   not paired.
+4. **Binary content is classified, never parsed.** A native module is reported
+   by type and hash; its contents are not analysed.
+5. **Integrity has no scheduled capture.** Snapshots are taken when asked for.
+
+### Readiness for GATE 5
+
+| Requirement | Ready |
+| --- | --- |
+| Sample storage with provenance | ✅ `performance_samples` with a `source` column |
+| A regression engine awaiting a source | ✅ Complete and tested against supplied samples |
+| Bounded, contained filesystem access | ✅ Delivered in GATE 0 |
+| A place for the collector to live | ✅ `resources/sentinel_doctor` with its constraints documented |
+| A rule requiring runtime data | ✅ `PERF-REGRESSION-001` |
+| Health category awaiting runtime data | ✅ `RELIABILITY`, reported as unavailable with the reason |
 
 ## GATE 5 — Runtime resource ⬜
 
-Not started. `resources/sentinel_doctor` with verified FiveM APIs only, and
-mandatory overhead benchmarks. Significant overhead is a release blocker.
+**Next gate.** `resources/sentinel_doctor`: safe runtime telemetry, resource
+state monitoring, event-driven collection, and mandatory overhead benchmarks.
+
+Every FiveM API used must first be verified against official Cfx.re
+documentation. Where an API does not exist or does not expose what is needed,
+the limitation is documented and the closest safe alternative is implemented.
+Runtime data is never synthesised.
+
+Exit criteria: the collector uses only verified APIs; its overhead is measured
+and documented; collected samples flow into the existing regression engine; and
+nothing is reported that was not measured.
 
 ## GATE 6 — Dashboard ⬜
 

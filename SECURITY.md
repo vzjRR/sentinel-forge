@@ -97,6 +97,17 @@ every excerpt column in every migration.
 If you find a credential in a report, that is a defect: report it as a
 vulnerability rather than a bug.
 
+### No credential-shaped value is committed, including in tests
+
+Testing a credential detector requires realistic input, but a repository
+containing strings that a secret scanner reads as live is its own problem: it
+trips push protection, alarms reviewers, and contradicts the commitment above.
+
+Such values are therefore assembled from fragments at runtime
+(`tests/helpers/fabricated-credentials.ts`) and never written into a file.
+`tests/security/repository-hygiene.test.ts` enforces the rule against the whole
+source tree.
+
 ## 6. Privacy
 
 Sentinel Forge is local-first.

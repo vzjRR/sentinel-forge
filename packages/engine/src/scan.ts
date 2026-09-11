@@ -25,6 +25,9 @@ import {
   BASE_LIMITATIONS,
   type EventReportSection,
   type HealthCategory,
+  SECURITY_SECTION_LIMITATION,
+  type SecurityReportSection,
+  countBySeverity,
   compareFindings,
   isAtLeastSeverity,
   PRODUCT_VERSION,
@@ -66,6 +69,7 @@ import {
   type ScriptSide,
 } from '@sentinel-forge/analyzer';
 import { readTextFileBounded } from '@sentinel-forge/core';
+import { analyzeSecurityContent, analyzeSuspiciousFiles } from '@sentinel-forge/security';
 
 export interface ScanOptions {
   readonly serverPath: string;
@@ -83,6 +87,11 @@ export interface ScanOptions {
   readonly logger?: Logger;
   /** Command name recorded with the scan, e.g. `scan` or `dependencies`. */
   readonly command: string;
+  /**
+   * When false, security indicators are not analysed. Discovery, manifest and
+   * script analysis still run.
+   */
+  readonly analyzeSecurity?: boolean;
   /**
    * When false, resource scripts are not read or analysed. Discovery and
    * manifest analysis still run. Used by `dependencies`, which does not need
@@ -311,6 +320,12 @@ export async function scanServer(options: ScanOptions): Promise<ScanResult> {
       for (const analysis of analyses) {
         findings.push(...analyzePerformance({ script: analysis, clock }));
       }
+
+      if (options.analyzeSecurity !== false) {
+        findings.push(
+          ...(await analyzeResourceSecurity(server.root, resource, options, scriptLimitations, clock)),
+        );
+      }
     }
   }
 
@@ -359,6 +374,7 @@ export async function scanServer(options: ScanOptions): Promise<ScanResult> {
     findingsByResource.set(finding.resource, list);
   }
 
+  const securityAnalyzed = options.analyzeScripts !== false && options.analyzeSecurity !== false;
   const scoredCategories = options.analyzeScripts === false
     ? SCORED_CATEGORIES.filter((category) => category !== 'PERFORMANCE')
     : SCORED_CATEGORIES;
@@ -368,17 +384,20 @@ export async function scanServer(options: ScanOptions): Promise<ScanResult> {
     ...(options.analyzeScripts === false
       ? { PERFORMANCE: 'Script analysis was not requested for this command.' }
       : {}),
+    ...(securityAnalyzed ? {} : { SECURITY: 'Security analysis was not requested for this command.' }),
   };
+
+  const categoriesWithSecurity = securityAnalyzed ? [...scoredCategories, 'SECURITY' as HealthCategory] : scoredCategories;
 
   const health = computeHealth({
     findings: reported,
-    availableCategories: scoredCategories,
+    availableCategories: categoriesWithSecurity,
     unavailableReasons: unscoredReasons,
   });
 
   const resources: ResourceReportEntry[] = server.resources.map((resource) => ({
     resource: toDescriptor(resource),
-    health: computeResourceHealth(resource.name, reported, scoredCategories, unscoredReasons),
+    health: computeResourceHealth(resource.name, reported, categoriesWithSecurity, unscoredReasons),
     findingIds: findingsByResource.get(resource.name) ?? [],
   }));
 
@@ -403,7 +422,10 @@ export async function scanServer(options: ScanOptions): Promise<ScanResult> {
   const limitations = [
     ...BASE_LIMITATIONS,
     'Performance analysis is static: it reads code, and does not measure a running server. Runtime timing arrives in GATE 3.',
-    'Security and integrity analysis are NOT IMPLEMENTED in this build; those report sections are absent rather than empty, and the corresponding health categories are reported as unavailable rather than scored.',
+    ...(securityAnalyzed
+      ? [SECURITY_SECTION_LIMITATION]
+      : ['Security analysis was not run for this command; the security section is absent rather than empty.']),
+    'Integrity comparison requires two snapshots. Use `sentinel integrity snapshot` and `sentinel integrity compare`.',
     ...server.limitations.map((limitation) => `Not analyzed: ${limitation.path} — ${limitation.reason}`),
     ...scriptLimitations.map((limitation) => `Not fully analyzed: ${limitation.path} — ${limitation.reason}`),
   ];
@@ -425,6 +447,7 @@ export async function scanServer(options: ScanOptions): Promise<ScanResult> {
     findings: reported,
     dependencies,
     events: toEventSection(eventGraph),
+    ...(securityAnalyzed ? { security: toSecuritySection(reported) } : {}),
     incidents: [],
     limitations,
   };
@@ -443,6 +466,80 @@ export async function scanServer(options: ScanOptions): Promise<ScanResult> {
 }
 
 /** Persists a scan result. Every write happens in one transaction. */
+/** Report view of the security findings, always carrying the standing limitation. */
+function toSecuritySection(findings: readonly Finding[]): SecurityReportSection {
+  const security = findings.filter((finding) => finding.category === 'SECURITY');
+  return {
+    findingIds: security.map((finding) => finding.id),
+    bySeverity: countBySeverity(security),
+    limitation: SECURITY_SECTION_LIMITATION,
+  };
+}
+
+/** Runs the content-based and file-based security rules over one resource. */
+async function analyzeResourceSecurity(
+  serverRoot: string,
+  resource: DiscoveredResource,
+  options: ScanOptions,
+  limitations: { path: string; reason: string }[],
+  clock: Clock,
+): Promise<Finding[]> {
+  const findings: Finding[] = [
+    ...analyzeSuspiciousFiles({
+      resource: resource.name,
+      resourcePath: resource.path,
+      files: resource.files.map((file) => ({ path: file.path, size: file.size })),
+      clock,
+    }),
+  ];
+
+  for (const file of resource.files) {
+    const extension = path.posix.extname(file.path).toLowerCase();
+    // Text formats only: a binary is reported by its type, never opened and
+    // pattern-matched, which would waste the scan and produce noise.
+    if (!SECURITY_SCANNED_EXTENSIONS.has(extension)) continue;
+
+    try {
+      const read = await readTextFileBounded(path.join(serverRoot, ...file.serverPath.split('/')), {
+        root: serverRoot,
+        ...(options.maxFileBytes === undefined ? {} : { maxBytes: options.maxFileBytes }),
+        truncate: true,
+      });
+      findings.push(
+        ...analyzeSecurityContent(
+          { filePath: file.serverPath, resource: resource.name, content: read.content },
+          { clock },
+        ),
+      );
+    } catch (error) {
+      limitations.push({
+        path: file.serverPath,
+        reason: `Not scanned for security indicators: ${error instanceof Error ? error.message : 'unknown error'}`,
+      });
+    }
+  }
+
+  return findings;
+}
+
+/** File types whose text is scanned for security indicators. */
+const SECURITY_SCANNED_EXTENSIONS = new Set([
+  '.lua',
+  '.js',
+  '.mjs',
+  '.cjs',
+  '.ts',
+  '.json',
+  '.cfg',
+  '.env',
+  '.ini',
+  '.yml',
+  '.yaml',
+  '.html',
+  '.txt',
+  '.md',
+]);
+
 /** Report view of the event graph: counts and cross-resource relationships. */
 function toEventSection(graph: EventGraph): EventReportSection {
   return {

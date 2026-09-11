@@ -4,6 +4,8 @@ import path from 'node:path';
 import { Writable } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { EXIT_CODES } from '@sentinel-forge/shared';
+import { listCommands } from './commands/index.js';
+import { notImplementedCommand } from './commands/not-implemented.js';
 import { run } from './run.js';
 
 function captureStream(): { stream: Writable; text: () => string } {
@@ -59,15 +61,51 @@ describe('CLI exit-code contract', () => {
     expect(result.stderr).toContain('Unknown option');
   });
 
-  it('exits 2 for a command this build does not provide, and says which gate delivers it', async () => {
-    const result = await invoke(['security'], workspace);
-    expect(result.exitCode).toBe(EXIT_CODES.INVALID_INPUT);
-    expect(result.stderr).toContain('NOT IMPLEMENTED');
-    expect(result.stderr).toContain('GATE 4');
+  it('provides every command named in the product specification', () => {
+    // Each of these is a command the specification requires. A command present
+    // in the registry but not implemented would report NOT IMPLEMENTED with its
+    // gate; none remain in that state.
+    const required = [
+      'init',
+      'scan',
+      'health',
+      'resource',
+      'dependencies',
+      'baseline',
+      'compare',
+      'incidents',
+      'security',
+      'integrity',
+      'report',
+      'purge',
+      'doctor',
+      'version',
+      'help',
+    ];
+
+    const commands = new Map(listCommands().map((command) => [command.name, command]));
+    for (const name of required) {
+      expect(commands.get(name), `${name} must be registered`).toBeDefined();
+      expect(commands.get(name)?.status, `${name} must be implemented`).toBe('IMPLEMENTED');
+    }
+  });
+
+  it('reports a capability this build does not provide, with the gate that delivers it', async () => {
+    // No command is in this state any more, so the mechanism is exercised
+    // directly rather than through a placeholder kept alive only for the test.
+    const placeholder = notImplementedCommand({
+      name: 'example',
+      summary: 'A capability delivered later.',
+      usage: 'example',
+      gate: 9,
+    });
+
+    await expect(placeholder.run({} as never)).rejects.toThrow(/NOT IMPLEMENTED[\s\S]*GATE 9/);
+    expect(placeholder.status).toBe('NOT_IMPLEMENTED');
   });
 
   it('writes a parseable error object to stdout under --json', async () => {
-    const result = await invoke(['security', '--json'], workspace);
+    const result = await invoke(['resource', '--json'], workspace);
     const payload = JSON.parse(result.stdout) as { ok: boolean; error: Record<string, unknown> };
     expect(payload.ok).toBe(false);
     expect(payload.error['exitCode']).toBe(EXIT_CODES.INVALID_INPUT);
@@ -102,10 +140,12 @@ describe('CLI exit-code contract', () => {
     expect(implemented.exitCode).toBe(EXIT_CODES.SUCCESS);
     expect(implemented.stdout).toContain('sentinel scan');
     expect(implemented.stdout).not.toContain('NOT IMPLEMENTED');
+  });
 
-    const planned = await invoke(['security', '--help'], workspace);
-    expect(planned.stdout).toContain('NOT IMPLEMENTED');
-    expect(planned.stdout).toContain('GATE 4');
+  it('omits the unimplemented section from help when nothing is pending', async () => {
+    const result = await invoke(['help'], workspace);
+    expect(result.stdout).toContain('Available in this build:');
+    expect(result.stdout).not.toContain('NOT IMPLEMENTED');
   });
 
   it('lists the rule catalog with each rule delivery status', async () => {

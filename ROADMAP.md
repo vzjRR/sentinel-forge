@@ -15,7 +15,7 @@ Current delivery status: [`docs/GATE_STATUS.md`](docs/GATE_STATUS.md).
 | 1 | Static scanner | **Complete** |
 | 2 | Diagnostic engine | **Complete** |
 | 3 | Performance intelligence | **Complete** |
-| 4 | Security and integrity | Not started |
+| 4 | Security and integrity | **Complete** |
 | 5 | Runtime resource | Not started |
 | 6 | Dashboard | Not started |
 | 7 | MCP interface | Not started |
@@ -61,10 +61,12 @@ Rules: `PERF-REGRESSION-001`. Commands: `baseline`, `compare`, `incidents`,
 Timing measurement arrives with the runtime collector in GATE 5. Until then a
 baseline records zero samples and every comparison says so.
 
-## GATE 4 — Security and integrity
+## GATE 4 — Security and integrity *(complete)*
 
-Secret scanning with redaction; obfuscation indicators; remote-load detection;
-suspicious file detection; integrity snapshots and comparison.
+Secret detection across ten credential formats, reported by location and never
+by value; obfuscation indicators weighted by density; remote-load and dynamic
+execution detection; suspicious file types; integrity snapshots and comparison
+that distinguishes a changed file from a merely touched one.
 
 Rules: `SEC-SECRET-001`, `SEC-WEBHOOK-001`, `SEC-OBFUSCATION-001`,
 `SEC-REMOTE-LOAD-001`, `SEC-DYNAMIC-EXEC-001`, `SEC-SUSPICIOUS-FILE-001`,

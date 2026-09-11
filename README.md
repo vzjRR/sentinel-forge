@@ -37,13 +37,14 @@ by, or sponsored by Rockstar Games, Cfx.re, the FiveM project, or txAdmin.
 
 ## Current status
 
-**GATE 3 — Performance intelligence. Complete.**
+**GATE 4 — Security and integrity. Complete.**
 
 Sentinel Forge scans a FiveM server, diagnoses it, and tracks it over time. It
 parses manifests and scripts without executing them, resolves the dependency
-graph, analyses loops, events and database access, produces an explainable
-health score, and — the part it exists for — compares two points in time to
-answer *what changed, and what followed*.
+graph, analyses loops, events and database access, detects security indicators,
+tracks file integrity, produces an explainable health score, and — the part it
+exists for — compares two points in time to answer *what changed, and what
+followed*.
 
 Commands that belong to a later gate are present in the CLI and report
 `NOT IMPLEMENTED` with the gate that delivers them — they never return an empty
@@ -51,14 +52,15 @@ or invented result.
 
 See [`docs/GATE_STATUS.md`](docs/GATE_STATUS.md) for exactly what exists today.
 
-| Available now | Delivered by a later gate |
-| --- | --- |
-| `sentinel scan`, `health`, `resource` | `security`, `integrity` (GATE 4) |
-| `sentinel dependencies`, `report` | runtime collector (GATE 5) |
-| `sentinel baseline`, `compare`, `incidents` | dashboard (GATE 6) |
-| `sentinel purge`, `init`, `doctor`, `version`, `help` | MCP (GATE 7) |
+Every command in the product specification is implemented:
+`scan`, `health`, `resource`, `dependencies`, `baseline`, `compare`,
+`incidents`, `security`, `integrity`, `report`, `purge`, `init`, `doctor`,
+`version`, `help`.
 
-Nine rules are implemented and run against every scan:
+Still to come: the in-server runtime collector (GATE 5), the local dashboard
+(GATE 6) and the read-only MCP interface (GATE 7).
+
+Sixteen rules are implemented and run against every scan:
 
 | Rule | Detects |
 | --- | --- |
@@ -71,10 +73,34 @@ Nine rules are implemented and run against every scan:
 | `PERF-EVENT-001` | Network events triggered from a per-frame loop. |
 | `PERF-QUERY-001` | Queries per loop iteration, unbounded SELECTs, `SELECT *`. |
 | `PERF-REGRESSION-001` | Timing regressions between baselines, guarded against noise and tiny absolute values. |
+| `SEC-SECRET-001`, `SEC-WEBHOOK-001` | Embedded credentials and webhook endpoints, reported by location — never by value. |
+| `SEC-OBFUSCATION-001` | Obfuscation indicators: code that cannot be reviewed, not code assumed to be malicious. |
+| `SEC-REMOTE-LOAD-001`, `SEC-DYNAMIC-EXEC-001` | Remote code loading and dynamic execution. |
+| `SEC-SUSPICIOUS-FILE-001` | Executables and other file types a resource does not normally contain. |
+| `INT-CHANGE-001` | Files added, modified or deleted between integrity snapshots. |
 
-Security, integrity and runtime analysis are not implemented yet; those report
-sections are absent rather than empty, and the matching health categories are
-reported as unavailable rather than scored.
+Runtime measurement is not implemented yet, so the `RELIABILITY` health category
+is reported as unavailable rather than scored, and a baseline records zero
+performance samples.
+
+### Finding a credential without copying it
+
+```bash
+sentinel security
+```
+
+```
+HIGH
+  SEC-SECRET-001    Embedded credential indicator
+    confidence 0.90 (Very high) [sf_leaky] resources/sf_leaky/server.lua:11
+    → Move the value into server configuration outside the resource, and rotate
+      it if the resource has been distributed. The value itself is not recorded
+      by Sentinel Forge.
+```
+
+The value is never written to output, to a report, or to the local database —
+a test extracts every planted credential from the fixture and asserts it appears
+in none of them, while the finding still reports the file and line.
 
 ### What changed, and what followed
 
@@ -186,8 +212,8 @@ packages/analyzer     Lua, event and database analysis; health scoring
 packages/engine       The scan pipeline
 packages/performance  Baselines, statistics, regression detection
 packages/incidents    Change correlation and incident timelines
-packages/security     Secrets, obfuscation         (GATE 4)
-packages/integrity    Snapshots and comparison     (GATE 4)
+packages/security     Secret, obfuscation and execution indicators
+packages/integrity    File integrity snapshots and comparison
 packages/runtime      Runtime telemetry ingestion  (GATE 5)
 resources/sentinel_doctor  In-server collector     (GATE 5)
 database/migrations   SQL schema, forward-only

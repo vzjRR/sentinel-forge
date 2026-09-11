@@ -29,13 +29,29 @@ const COMMITTED_SECRET_PATTERNS: readonly { name: string; pattern: RegExp }[] = 
   { name: 'JSON Web Token', pattern: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/ },
   { name: 'URI with embedded credentials', pattern: /[a-z][a-z0-9+.-]*:\/\/[^\s:/@"']+:[^\s@"'/]{4,}@/i },
   {
+    // The value must look like a credential, not merely sit after a
+    // credential-shaped key. A short lowercase word is a label
+    // (`PASSWORD: 'password'` in a display map), never a live secret.
+    // Note the case-insensitive flag: a mixed-case test would be meaningless
+    // here, so the signal is a digit, a symbol, or substantial length.
     name: 'quoted credential assignment',
-    pattern: /\b\w*(?:password|api[_-]?key|secret|auth[_-]?token|licen[cs]e[_-]?key)\w*\s*(?:=|:)\s*["'`][^"'`\n]{6,}["'`]/i,
+    pattern:
+      /\b\w*(?:password|api[_-]?key|secret|auth[_-]?token|licen[cs]e[_-]?key)\w*\s*(?:=|:)\s*["'`](?=[^"'`\n]*(?:[0-9]|[^\w\s"'`])|[^"'`\n]{16,}["'`])[^"'`\n]{8,}["'`]/i,
   },
 ];
 
 /** A value is acceptable only when the surrounding line marks it as fictional. */
 const PLACEHOLDER_MARKER = /EXAMPLE|FIXTURE|fixture|example|placeholder|Synthetic|synthetic/;
+
+/**
+ * A file-level notice, accepted in place of a per-line marker.
+ *
+ * A test for a credential detector needs values shaped like live credentials;
+ * marking each one inline would both clutter the test and defeat it, since the
+ * marker is itself a signal the detector reads. Declaring it once at the top of
+ * the file is the honest alternative — and it must say so explicitly.
+ */
+const FILE_LEVEL_NOTICE = /Every value in this file is fabricated|SYNTHETIC FIXTURE/;
 
 const SOURCE_DIRECTORIES = ['packages', 'apps', 'scripts', 'database'];
 
@@ -65,6 +81,37 @@ async function collectSourceFiles(): Promise<{ relativePath: string; content: st
   return collected;
 }
 
+describe('committed-credential detection', () => {
+  /** Applies the same matcher the hygiene check uses. */
+  function flags(line: string): boolean {
+    return COMMITTED_SECRET_PATTERNS.some(({ pattern }) => {
+      pattern.lastIndex = 0;
+      return pattern.test(line);
+    });
+  }
+
+  it('flags a credential that looks live', () => {
+    // Assembled rather than written out, for the same reason the product's own
+    // fixtures are: nothing in this repository should read as a live secret.
+    const join = (...parts: string[]): string => parts.join('');
+    expect(flags(`local password = '${join('r4T#mQ', '9vLp2Wx')}'`)).toBe(true);
+    expect(flags(`api_key = '${join('7Kd93MzQ', 'pXvR2NwL', '5tYbHcJ8')}'`)).toBe(true);
+    expect(flags(join('mysql://user:', '8Jd2kQpV9mXr', '@db.invalid/schema'))).toBe(true);
+    expect(
+      flags(join('https://discord.com/api/', 'webhooks/', '473829104857392017/', 'hT2mQvXpL9dRfWs4KcYbNjE7uZaG3iOx')),
+    ).toBe(true);
+  });
+
+  it('does not flag a label or an identifier that merely mentions a credential', () => {
+    // These appear throughout the product's own source. A check that flags them
+    // is a check nobody will keep running.
+    expect(flags(`PASSWORD: 'password',`)).toBe(false);
+    expect(flags(`const token = argv[index];`)).toBe(false);
+    expect(flags(`description: 'API key assignment',`)).toBe(false);
+    expect(flags(`secretKind: 'password'`)).toBe(false);
+  });
+});
+
 describe('repository hygiene', () => {
   it('contains no committed credentials', async () => {
     const files = await collectSourceFiles();
@@ -82,8 +129,9 @@ describe('repository hygiene', () => {
           // A credential-shaped value is only acceptable where it is
           // self-evidently fictional, so a real secret can never pass review as
           // test scaffolding.
+          const fileHeader = file.content.split('\n').slice(0, 30).join('\n');
           expect(
-            PLACEHOLDER_MARKER.test(line),
+            PLACEHOLDER_MARKER.test(line) || FILE_LEVEL_NOTICE.test(fileHeader),
             `${file.relativePath}:${String(index + 1)} contains an unmarked ${name}`,
           ).toBe(true);
         }

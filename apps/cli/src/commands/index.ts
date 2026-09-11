@@ -2,8 +2,13 @@
  * Command registry.
  *
  * Registers the complete command surface described by the product
- * specification. Commands delivered by a later gate are present but declared
- * NOT IMPLEMENTED, so `sentinel help` describes the real state of the build.
+ * specification. Every command in that specification is now implemented, so no
+ * placeholder is registered here.
+ *
+ * `notImplementedCommand` is kept in the codebase rather than deleted: it is how
+ * a command belonging to a later gate is declared, so that `sentinel help`
+ * describes the real state of a build instead of hiding what is missing. Its
+ * behaviour is covered directly by `run.test.ts`.
  */
 
 import { baselineCommand } from './baseline.js';
@@ -12,11 +17,12 @@ import { dependenciesCommand } from './dependencies.js';
 import { doctorCommand } from './doctor.js';
 import { healthCommand } from './health.js';
 import { incidentsCommand } from './incidents.js';
+import { integrityCommand } from './integrity.js';
 import { helpCommand, setCommandProvider } from './help.js';
 import { initCommand } from './init.js';
-import { notImplementedCommand } from './not-implemented.js';
 import { purgeCommand } from './purge.js';
 import { reportCommand } from './report.js';
+import { securityCommand } from './security.js';
 import { resourceCommand } from './resource.js';
 import { scanCommand } from './scan.js';
 import { versionCommand } from './version.js';
@@ -31,18 +37,8 @@ const COMMANDS: readonly CommandDefinition[] = Object.freeze([
   baselineCommand,
   compareCommand,
   incidentsCommand,
-  notImplementedCommand({
-    name: 'security',
-    summary: 'Show security indicators with evidence and confidence.',
-    usage: 'security [--json]',
-    gate: 4,
-  }),
-  notImplementedCommand({
-    name: 'integrity',
-    summary: 'Create and compare file integrity snapshots.',
-    usage: 'integrity <snapshot|compare> [--json]',
-    gate: 4,
-  }),
+  securityCommand,
+  integrityCommand,
   reportCommand,
   purgeCommand,
   doctorCommand,

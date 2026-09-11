@@ -26,6 +26,12 @@
       "path": "packages/incidents"
     },
     {
+      "path": "packages/security"
+    },
+    {
+      "path": "packages/integrity"
+    },
+    {
       "path": "packages/engine"
     },
     {

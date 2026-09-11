@@ -236,9 +236,11 @@ describe('scan pipeline', () => {
       const total = category.deductions.reduce((sum, deduction) => sum + deduction.points, 0);
       expect(category.score, category.category).toBe(Math.max(0, 100 - total));
     }
-    // Categories with no analysis behind them are named, not scored.
+    // Categories with no analysis behind them are named, not scored. Runtime
+    // error data (GATE 5) and integrity comparison have none in this build.
     expect(payload.health.complete).toBe(false);
-    expect(Object.keys(payload.health.unavailable ?? {})).toContain('SECURITY');
+    expect(Object.keys(payload.health.unavailable ?? {})).toContain('RELIABILITY');
+    expect(payload.health.categories.map((category) => category.category)).toContain('SECURITY');
   });
 
   it('reports 100 with no deductions on the healthy fixture', async () => {
@@ -279,6 +281,57 @@ describe('scan pipeline', () => {
     // heartbeat event is triggered by the client and handled nowhere.
     expect(report.events?.triggeredButNotRegistered).toContain('sf_heavy:heartbeat');
     expect(report.events?.triggeredButNotRegistered).not.toContain('sf_heavy:position');
+  });
+
+  it('detects every security indicator the fixture declares', async () => {
+    const payload = await scan('security-indicators', workspace);
+    const rules = new Set(payload.findings.map((finding) => finding.ruleId));
+    for (const ruleId of [
+      'SEC-SECRET-001',
+      'SEC-WEBHOOK-001',
+      'SEC-OBFUSCATION-001',
+      'SEC-REMOTE-LOAD-001',
+      'SEC-DYNAMIC-EXEC-001',
+    ]) {
+      expect(rules.has(ruleId), `expected ${ruleId}`).toBe(true);
+    }
+    // The committed fixture marks its values as examples, so the detector is
+    // expected to report them at low confidence. The high-confidence path is
+    // covered in tests/security/secret-disclosure.test.ts, whose credentials are
+    // generated rather than committed.
+    const credentials = payload.findings.filter((finding) => finding.ruleId === 'SEC-SECRET-001');
+    expect(credentials.every((finding) => finding.severity === 'LOW')).toBe(true);
+  });
+
+  it('reports no security indicators on the healthy fixture', async () => {
+    const payload = await scan('healthy-server', workspace);
+    expect(payload.findings.filter((finding) => finding.ruleId.startsWith('SEC-'))).toEqual([]);
+  });
+
+  it('carries the standing security limitation in the report', async () => {
+    const result = await runCli(
+      ['scan', '--server', fixturePath('security-indicators'), '--format', 'json'],
+      workspace,
+    );
+    const report = JSON.parse(result.stdout) as {
+      security?: { limitation: string; findingIds: string[] };
+      limitations: string[];
+    };
+    expect(report.security?.limitation).toContain('do not guarantee malware detection');
+    expect(report.security?.findingIds.length).toBeGreaterThan(0);
+    expect(report.limitations.some((limitation) => limitation.includes('do not guarantee malware detection'))).toBe(true);
+  });
+
+  it('scores the security health category once security analysis runs', async () => {
+    const result = await runCli(['health', '--server', fixturePath('security-indicators'), '--json'], workspace);
+    const payload = parseJsonOutput<{
+      health: { categories: { category: string; score: number }[]; unavailable?: Record<string, string> };
+    }>(result);
+
+    const security = payload.health.categories.find((category) => category.category === 'SECURITY');
+    expect(security).toBeDefined();
+    expect(security?.score).toBeLessThan(100);
+    expect(Object.keys(payload.health.unavailable ?? {})).not.toContain('SECURITY');
   });
 
   it('honours a disabled rule from configuration', async () => {

@@ -1,8 +1,8 @@
 {
-  "name": "@sentinel-forge/engine",
+  "name": "@sentinel-forge/security",
   "version": "0.5.0",
   "private": true,
-  "description": "The diagnostic pipeline: composes discovery, analysis, scoring and storage into one scan.",
+  "description": "Secret, obfuscation, remote-load and suspicious-file indicators.",
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "main": "./dist/index.js",
@@ -20,14 +20,8 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "@sentinel-forge/analyzer": "0.5.0",
     "@sentinel-forge/core": "0.5.0",
-    "@sentinel-forge/dependencies": "0.5.0",
-    "@sentinel-forge/incidents": "0.5.0",
-    "@sentinel-forge/integrity": "0.5.0",
-    "@sentinel-forge/performance": "0.5.0",
-    "@sentinel-forge/scanner": "0.5.0",
-    "@sentinel-forge/security": "0.5.0",
+    "@sentinel-forge/lua": "0.5.0",
     "@sentinel-forge/shared": "0.5.0"
   }
 }

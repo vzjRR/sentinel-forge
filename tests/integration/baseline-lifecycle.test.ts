@@ -7,7 +7,7 @@
  * without claiming a cause.
  */
 
-import { appendFile, cp } from 'node:fs/promises';
+import { appendFile, cp, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { EXIT_CODES } from '@sentinel-forge/shared';
@@ -185,5 +185,93 @@ describe('baseline lifecycle', () => {
     expect(await readdir(path.join(server, 'resources', 'sf_core'), { recursive: true })).toEqual(before);
     const manifestAfter = await stat(path.join(server, 'resources', 'sf_core', 'fxmanifest.lua'));
     expect(manifestAfter.mtimeMs).toBe(manifestBefore.mtimeMs);
+  });
+});
+
+describe('integrity lifecycle', () => {
+  let workspace: string;
+  let server: string;
+
+  beforeEach(async () => {
+    workspace = await createWorkspace('sentinel-integrity-');
+    server = path.join(workspace, 'server');
+    await cp(fixturePath('integrity-change', 'before'), server, { recursive: true });
+    await runCli(['init', '--server', server], workspace);
+  });
+
+  afterEach(async () => {
+    await removeWorkspace(workspace);
+  });
+
+  /** Applies the change the integrity fixture describes. */
+  async function applyFixtureChange(): Promise<void> {
+    const { rm, writeFile } = await import('node:fs/promises');
+    await writeFile(
+      path.join(server, 'resources', 'sf_core', 'server', 'main.lua'),
+      await readFile(fixturePath('integrity-change', 'after', 'resources', 'sf_core', 'server', 'main.lua'), 'utf8'),
+      'utf8',
+    );
+    await writeFile(
+      path.join(server, 'resources', 'sf_core', 'server', 'extra.lua'),
+      await readFile(fixturePath('integrity-change', 'after', 'resources', 'sf_core', 'server', 'extra.lua'), 'utf8'),
+      'utf8',
+    );
+    await rm(path.join(server, 'resources', 'sf_core', 'client', 'legacy.lua'));
+  }
+
+  it('records a snapshot of every file with its hash', async () => {
+    const result = await runCli(['integrity', 'snapshot', 'before', '--json'], workspace);
+    const payload = parseJsonOutput<{ snapshot: { fileCount: number; snapshotHash: string } }>(result);
+    expect(payload.snapshot.fileCount).toBeGreaterThan(0);
+    expect(payload.snapshot.snapshotHash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('reports added, modified and deleted files between two snapshots', async () => {
+    await runCli(['integrity', 'snapshot', 'before'], workspace);
+    await applyFixtureChange();
+    await runCli(['integrity', 'snapshot', 'after'], workspace);
+
+    const result = await runCli(['integrity', 'compare', 'before', 'after', '--json'], workspace);
+    const payload = parseJsonOutput<{
+      added: { path: string }[];
+      modified: { path: string }[];
+      deleted: { path: string }[];
+      findings: { ruleId: string; severity: string }[];
+    }>(result);
+
+    expect(payload.added.map((change) => change.path)).toEqual(['resources/sf_core/server/extra.lua']);
+    expect(payload.modified.map((change) => change.path)).toEqual(['resources/sf_core/server/main.lua']);
+    expect(payload.deleted.map((change) => change.path)).toEqual(['resources/sf_core/client/legacy.lua']);
+    expect(payload.findings[0]).toMatchObject({ ruleId: 'INT-CHANGE-001', severity: 'INFO' });
+  });
+
+  it('reports two identical snapshots as identical', async () => {
+    await runCli(['integrity', 'snapshot', 'a'], workspace);
+    await runCli(['integrity', 'snapshot', 'b'], workspace);
+
+    const result = await runCli(['integrity', 'compare', 'a', 'b', '--json'], workspace);
+    const payload = parseJsonOutput<{ identical: boolean; modified: unknown[] }>(result);
+    expect(payload.identical).toBe(true);
+    expect(payload.modified).toEqual([]);
+  });
+
+  it('never modifies a file it is tracking', async () => {
+    const { readdir, stat } = await import('node:fs/promises');
+    const before = await readdir(path.join(server, 'resources'), { recursive: true });
+    const manifestBefore = await stat(path.join(server, 'resources', 'sf_core', 'fxmanifest.lua'));
+
+    await runCli(['integrity', 'snapshot', 'a'], workspace);
+    await runCli(['integrity', 'snapshot', 'b'], workspace);
+    await runCli(['integrity', 'compare', 'a', 'b'], workspace);
+
+    expect(await readdir(path.join(server, 'resources'), { recursive: true })).toEqual(before);
+    expect((await stat(path.join(server, 'resources', 'sf_core', 'fxmanifest.lua'))).mtimeMs).toBe(manifestBefore.mtimeMs);
+  });
+
+  it('names the missing snapshot when a comparison cannot be made', async () => {
+    await runCli(['integrity', 'snapshot', 'a'], workspace);
+    const result = await runCli(['integrity', 'compare', 'a', 'nope'], workspace);
+    expect(result.exitCode).toBe(EXIT_CODES.INVALID_INPUT);
+    expect(result.stderr).toContain('"nope"');
   });
 });

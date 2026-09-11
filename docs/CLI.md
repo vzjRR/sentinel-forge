@@ -25,20 +25,18 @@ says so explicitly and names the gate that delivers it.
 | `sentinel baseline <create\|list\|show\|delete>` | Record and inspect baselines. |
 | `sentinel compare <a> <b>` | Compare two baselines and report what changed. |
 | `sentinel incidents` | List correlated incidents and their timelines. |
+| `sentinel security` | Show security indicators with evidence and confidence. |
+| `sentinel integrity <snapshot\|list\|compare\|delete>` | File integrity snapshots and comparison. |
 | `sentinel purge [retention\|all]` | Delete locally stored data. Dry run unless `--confirm`. |
 | `sentinel doctor` | Check that this environment can run Sentinel Forge. |
 | `sentinel version` | Print product, report schema and database schema versions. |
 | `sentinel help [command\|rules]` | Show usage, a command's help, or the rule catalog. |
 
-### Declared, delivered by a later gate
+Every command named in the product specification is implemented in this build.
 
-| Command | Gate |
-| --- | --- |
-| `sentinel security` | 4 |
-| `sentinel integrity <snapshot\|compare>` | 4 |
-
-Invoking one of these exits with code `2` and a message naming the gate. It is
-never confused with an unknown command, and never returns an empty result.
+A command belonging to a later gate would still appear here, reporting
+`NOT IMPLEMENTED` with the gate that delivers it and exiting with code `2` — it
+is never confused with an unknown command, and never returns an empty result.
 
 ## Options
 
@@ -306,6 +304,72 @@ sentinel purge all --confirm
 
 Purge is a dry run unless `--confirm` is passed, and only ever touches Sentinel
 Forge's own database. The FiveM server is never modified.
+
+## Security
+
+```bash
+sentinel security --server "/opt/fxserver"
+```
+
+Reports embedded credentials, webhook endpoints, obfuscation indicators, remote
+code loading, dynamic execution and unexpected file types, grouped by severity
+with evidence and confidence.
+
+**A detected credential is reported by location. The value is never stored,
+logged or displayed** — not in output, not in a report, not in the local
+database:
+
+```
+HIGH
+  SEC-SECRET-001    Embedded credential indicator
+    confidence 0.90 (Very high) [sf_leaky] resources/sf_leaky/server.lua:11
+    An API key is written into sf_leaky. Anyone who obtains this resource
+    obtains the credential.
+    evidence: An API key was detected in this file. (resources/sf_leaky/server.lua:11)
+    → Move the value into server configuration outside the resource, and rotate
+      it if the resource has been distributed. The value itself is not recorded
+      by Sentinel Forge.
+```
+
+Confidence reflects how likely the value is to be live. A value marked as an
+example, or one with almost no character variety, scores low — example
+configuration is the most common source of false positives here.
+
+Every run prints the standing limitation:
+
+> Security findings are indicators and do not guarantee malware detection.
+> Absence of a finding is not evidence of safety.
+
+Obfuscation is reported as blocking review, not as wrongdoing: commercial
+resources are routinely obfuscated for licence protection.
+
+## Integrity
+
+```bash
+sentinel integrity snapshot before-update
+#   ... update a resource ...
+sentinel integrity snapshot after-update
+sentinel integrity compare before-update after-update
+```
+
+```
+  Added                   1
+  Modified                1
+  Deleted                 1
+  Touched (same content)  2
+  Unchanged               0
+
+Modified:
+  resources/sf_core/server/main.lua
+      Content hash changed from af2d37600b0c to ffead719f441.
+      Size changed from 122 to 209 bytes.
+```
+
+A file whose modification time changed but whose content did not is reported as
+**touched**, separately from a real change — otherwise a routine file copy would
+bury the changes that matter.
+
+**Files are never quarantined, moved, modified or deleted.**
 
 ## Resource detail
 

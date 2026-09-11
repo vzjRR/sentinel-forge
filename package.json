@@ -1,6 +1,6 @@
 {
   "name": "sentinel-forge",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "description": "Sentinel Forge \u2014 FiveM Server Intelligence. Local-first diagnostic intelligence for FiveM/GTA V server environments.",
   "author": "Talal Al Ghafri",
@@ -21,6 +21,8 @@
     "packages/analyzer",
     "packages/performance",
     "packages/incidents",
+    "packages/security",
+    "packages/integrity",
     "packages/engine",
     "packages/reports",
     "apps/cli"

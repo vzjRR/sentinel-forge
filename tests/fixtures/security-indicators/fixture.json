@@ -9,5 +9,5 @@
     "SEC-REMOTE-LOAD-001",
     "SEC-DYNAMIC-EXEC-001"
   ],
-  "notes": "Every credential-shaped value here is a deliberately invalid placeholder. None of these endpoints or keys exist. This fixture exists to exercise detection and redaction; tests assert that no raw placeholder value reaches report output."
+  "notes": "sf_suspicious uses values explicitly marked as examples, which the detector correctly downgrades to low confidence \u2014 that downgrade is itself under test, because example configuration is the most common source of false positives. The high-confidence path needs values shaped like live credentials; those are assembled at test time by tests/helpers/fabricated-credentials.ts rather than committed, so that nothing in this repository reads as a live secret. Tests assert that no value from either source reaches any output."
 }

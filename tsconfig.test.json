@@ -38,6 +38,12 @@
       "@sentinel-forge/incidents": [
         "packages/incidents/src/index.ts"
       ],
+      "@sentinel-forge/security": [
+        "packages/security/src/index.ts"
+      ],
+      "@sentinel-forge/integrity": [
+        "packages/integrity/src/index.ts"
+      ],
       "@sentinel-forge/engine": [
         "packages/engine/src/index.ts"
       ],

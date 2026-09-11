@@ -6,6 +6,72 @@ the project uses [Semantic Versioning](https://semver.org/).
 
 © 2026 Talal Al Ghafri. All Rights Reserved.
 
+## [0.5.0] — GATE 4: Security and integrity
+
+Every command in the product specification is now implemented.
+
+### Added
+
+- **`@sentinel-forge/security`**: detection across ten credential formats, with
+  placeholder and entropy adjustments and overlap resolved by pattern
+  specificity; obfuscation indicators weighted by density; remote-load and
+  dynamic-execution detection; and suspicious file types with confidences that
+  reflect how often each is legitimate.
+- **`@sentinel-forge/integrity`**: snapshots of every file with size, content
+  hash, modification time and type, and comparison that reports added, modified
+  and deleted files — with *touched* (identical content, new timestamp) reported
+  separately so it cannot be mistaken for a change.
+- **Commands** `sentinel security` and `sentinel integrity`.
+- **Rules** `SEC-SECRET-001`, `SEC-WEBHOOK-001`, `SEC-OBFUSCATION-001`,
+  `SEC-REMOTE-LOAD-001`, `SEC-DYNAMIC-EXEC-001`, `SEC-SUSPICIOUS-FILE-001`,
+  `INT-CHANGE-001`.
+- **`tests/security/secret-disclosure.test.ts`**: extracts every credential
+  planted in the fixture and asserts that none reaches command output, `--json`
+  output, verbose logs, a JSON report, a Markdown report, any table of the local
+  database, a baseline, or an integrity snapshot — while asserting that findings
+  still report file and line.
+- **`tests/integration/rule-catalog-accuracy.test.ts`**: derives the emitted
+  rule ids from source and asserts the catalog matches in both directions.
+
+### Fixed
+
+- **The rule catalog was wrong.** Three GATE 2 rules and one GATE 3 rule were
+  running while still catalogued as `NOT_IMPLEMENTED`, so `sentinel help rules`
+  under-reported what the product does.
+- **Overlap resolution preferred the wrong match.** Deduplication ranked by
+  confidence, which kept a generic classification over a specific one precisely
+  when the specific pattern had found evidence the value was a placeholder.
+- **A zero-entropy value scored too high.** Low character variety now carries a
+  real penalty: a 22-character all-zeros token is definitionally not live.
+- **The repository's own credential check was imprecise.** Under a
+  case-insensitive flag its mixed-case test matched any two letters, so a label
+  map entry read as a committed secret. It now requires a digit, a symbol or
+  substantial length, and has its own test.
+
+### Wording, as a tested property
+
+Output never contains *malicious*, *backdoor*, *malware detected* or
+*compromised*; the standing limitation prints with every security run and is
+carried in the report; and obfuscation is described as blocking review and
+explicitly "not in itself evidence of wrongdoing".
+
+### No credential-shaped value is committed
+
+Realistically shaped test credentials are assembled from fragments at runtime by
+`tests/helpers/fabricated-credentials.ts` rather than written into the
+repository. They were committed at first, and GitHub push protection rejected
+the push because one fabricated string matched a vendor's published key format.
+The scanner was right: a repository containing strings that read as live secrets
+contradicts this product's own commitment. The detector receives identical
+input either way.
+
+### Known limitations
+
+Detection is by known format, so an unknown credential format is not found;
+obfuscation detection is density-based; remote-load pairing is proximity-based;
+binary content is classified by type and hash, never parsed. See
+`docs/GATE_STATUS.md`.
+
 ## [0.4.0] — GATE 3: Performance intelligence
 
 Sentinel Forge can now answer "what changed, and what followed" — the question
